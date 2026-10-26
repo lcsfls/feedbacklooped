@@ -294,7 +294,9 @@ func (a *App) handleTeamMessage(w http.ResponseWriter, r *http.Request) {
 		a.notFound(w, r)
 		return
 	}
-	if err := a.parseUpload(w, r); err != nil {
+	release, err := a.parseUpload(w, r)
+	defer release()
+	if err != nil {
 		a.fail(w, r, 400, err.Error())
 		return
 	}

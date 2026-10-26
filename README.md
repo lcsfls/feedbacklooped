@@ -20,7 +20,7 @@ A minimal, self-hosted, white-label feedback portal with a kanban board. Let use
 - **Spam protection without third parties:** invisible proof-of-work check (ALTCHA-compatible), honeypot, rate limit.
 - **GDPR-friendly:** no IP addresses stored, no cookies for visitors (a chosen light/dark theme stays in the browser's local storage), everything self-hosted (fonts included), metadata stripped from images, automatic deletion of closed feedback, self-service deletion via the status link, imprint and privacy policy pages with a template.
 - **White-label:** your own logo, wordmark and colors in a few clicks. Light and dark mode follow the system, or pick one with the toggle in the header.
-- **One binary, zero dependencies:** Go standard library only. Data is a JSON file plus an uploads folder.
+- **One binary, zero dependencies:** Go standard library only. Data is a JSON file plus an uploads folder. About 5 MB of RAM when idle; in a test with 500 simultaneous submissions, each with a 2 MB screenshot, all were stored with a peak of about 65 MB.
 
 > [!WARNING]
 > **100 % vibe-coded.** Every line of this project – code, templates, styles, docs – was written by [Claude](https://claude.ai) (Anthropic’s AI model) in a chat with its maintainer, who described what they wanted and tested the result. It has been tested end to end and reviewed for common security issues, but **it has not been audited by an independent human security expert.** Read the [security notes](#security) before you put it on the internet, and treat it like any young, small project: run it behind a reverse proxy, keep it updated, keep backups.

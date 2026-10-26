@@ -56,21 +56,38 @@ func (a *App) handleForm(w http.ResponseWriter, r *http.Request) {
 }
 
 // parseUpload limits the request size and parses the multipart form.
-func (a *App) parseUpload(w http.ResponseWriter, r *http.Request) error {
+// uploadSlots limits how many large uploads are processed at the same time.
+// Others wait (their bodies are not read yet, so they cost almost no memory).
+// Without it, 500 simultaneous 2 MB screenshots peaked at over 3 GB of RAM.
+var uploadSlots = make(chan struct{}, 4)
+
+// parseUpload reads a (possibly multipart) form. The returned release must
+// be called when the handler is done with the files.
+func (a *App) parseUpload(w http.ResponseWriter, r *http.Request) (release func(), err error) {
+	release = func() {}
+	if r.ContentLength < 0 || r.ContentLength > 256<<10 {
+		select {
+		case uploadSlots <- struct{}{}:
+			release = func() { <-uploadSlots }
+		case <-r.Context().Done():
+			return release, errors.New("The upload was cancelled.")
+		}
+	}
 	st := a.store.Settings()
 	max := int64(st.MaxFiles)*int64(st.MaxFileMB)<<20 + 2<<20
 	r.Body = http.MaxBytesReader(w, r.Body, max)
-	if err := r.ParseMultipartForm(16 << 20); err != nil {
+	// Keep at most 1 MB per request in memory; larger files go to temp files.
+	if err := r.ParseMultipartForm(1 << 20); err != nil {
 		var mbe *http.MaxBytesError
 		if errors.As(err, &mbe) {
-			return fmt.Errorf("Upload too large (max. %d files of %d MB each)", st.MaxFiles, st.MaxFileMB)
+			return release, fmt.Errorf("Upload too large (max. %d files of %d MB each)", st.MaxFiles, st.MaxFileMB)
 		}
 		if errors.Is(err, http.ErrNotMultipart) {
-			return r.ParseForm()
+			return release, r.ParseForm()
 		}
-		return errors.New("Could not read the form")
+		return release, errors.New("Could not read the form")
 	}
-	return nil
+	return release, nil
 }
 
 func formFiles(r *http.Request) []*multipart.FileHeader {
@@ -147,7 +164,9 @@ func (a *App) handleSubmit(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, 403, "Request from another site rejected.")
 		return
 	}
-	if err := a.parseUpload(w, r); err != nil {
+	release, err := a.parseUpload(w, r)
+	defer release()
+	if err != nil {
 		a.fail(w, r, 400, err.Error())
 		return
 	}
@@ -255,7 +274,9 @@ func (a *App) handleSubmitterReply(w http.ResponseWriter, r *http.Request) {
 		a.notFound(w, r)
 		return
 	}
-	if err := a.parseUpload(w, r); err != nil {
+	release, err := a.parseUpload(w, r)
+	defer release()
+	if err != nil {
 		a.fail(w, r, 400, err.Error())
 		return
 	}

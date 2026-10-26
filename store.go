@@ -324,6 +324,17 @@ func OpenStore(dataDir string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Join(dataDir, "uploads"), 0o750); err != nil {
 		return nil, err
 	}
+	// Large uploads are buffered in temp files while they arrive. Keep those
+	// on the data volume (the container's own /tmp may be small or missing)
+	// and clear leftovers from a crash.
+	if os.Getenv("TMPDIR") == "" {
+		tmp := filepath.Join(dataDir, "tmp")
+		os.RemoveAll(tmp)
+		if err := os.MkdirAll(tmp, 0o700); err != nil {
+			return nil, err
+		}
+		os.Setenv("TMPDIR", tmp)
+	}
 	s := &Store{path: filepath.Join(dataDir, "feedback.json"), Uploads: filepath.Join(dataDir, "uploads")}
 	b, err := os.ReadFile(s.path)
 	switch {
