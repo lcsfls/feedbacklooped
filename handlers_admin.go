@@ -24,6 +24,11 @@ func (a *App) handleAdminHome(w http.ResponseWriter, r *http.Request) {
 		a.render(w, r, 200, "login", nil)
 		return
 	}
+	board := a.store.Board(boardParam(r))
+	if board == nil {
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		return
+	}
 	type col struct {
 		Key, Label string
 		Tickets    []*Ticket
@@ -34,6 +39,9 @@ func (a *App) handleAdminHome(w http.ResponseWriter, r *http.Request) {
 	}
 	unread := 0
 	for _, t := range a.store.Tickets() {
+		if t.BoardID != board.ID {
+			continue
+		}
 		if t.UnreadReply {
 			unread++
 		}
@@ -43,7 +51,7 @@ func (a *App) handleAdminHome(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	a.render(w, r, 200, "board", pageData{"Cols": cols, "Unread": unread})
+	a.render(w, r, 200, "board", pageData{"Cols": cols, "Unread": unread, "Board": board, "Tabs": a.boardTabs()})
 }
 
 func (a *App) handleSetup(w http.ResponseWriter, r *http.Request) {
@@ -142,8 +150,12 @@ func (a *App) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleNewCard(w http.ResponseWriter, r *http.Request) {
 	title := oneLine(cleanText(r.FormValue("title"), 200))
+	boardID, _ := strconv.Atoi(r.FormValue("board"))
+	if a.store.Board(boardID) == nil {
+		boardID = PublicBoardID
+	}
 	if title == "" {
-		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		http.Redirect(w, r, boardURL(boardID), http.StatusSeeOther)
 		return
 	}
 	st := a.store.Settings()
@@ -156,7 +168,7 @@ func (a *App) handleNewCard(w http.ResponseWriter, r *http.Request) {
 	a.store.Update(func(db *dbFile) error {
 		id = db.NextID
 		db.NextID++
-		db.Tickets = append(db.Tickets, &Ticket{ID: id, Title: title, Category: cat, Status: "inbox",
+		db.Tickets = append(db.Tickets, &Ticket{ID: id, BoardID: boardID, Title: title, Category: cat, Status: "inbox",
 			Pos: minPos(db, "inbox"), Internal: true, CreatedAt: now, UpdatedAt: now})
 		return nil
 	})
@@ -215,7 +227,7 @@ func (a *App) handleTicket(w http.ResponseWriter, r *http.Request) {
 			return nil
 		})
 	}
-	a.render(w, r, 200, "ticket", pageData{"T": t})
+	a.render(w, r, 200, "ticket", pageData{"T": t, "Board": a.store.Board(t.BoardID), "Boards": a.store.Boards()})
 }
 
 func (a *App) handleTicketUpdate(w http.ResponseWriter, r *http.Request) {
@@ -245,7 +257,11 @@ func (a *App) handleTicketUpdate(w http.ResponseWriter, r *http.Request) {
 				t.Labels = append(t.Labels, l)
 			}
 		}
-		t.OnRoadmap = r.FormValue("on_roadmap") == "1"
+		if b, err := strconv.Atoi(r.FormValue("board")); err == nil && b != t.BoardID && findBoard(db, b) != nil {
+			t.BoardID = b
+			t.Pos = minPos(db, t.Status)
+		}
+		t.OnRoadmap = r.FormValue("on_roadmap") == "1" && t.BoardID == PublicBoardID
 		t.RoadmapTitle = cleanText(r.FormValue("roadmap_title"), 200)
 		t.UpdatedAt = time.Now()
 		return nil
@@ -377,6 +393,10 @@ func (a *App) handleAttachmentDelete(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleTicketDelete(w http.ResponseWriter, r *http.Request) {
 	id := pathInt(r, "id")
+	back := "/admin"
+	if t := a.store.Ticket(id); t != nil {
+		back = boardURL(t.BoardID)
+	}
 	var removed []Attachment
 	a.store.Update(func(db *dbFile) error {
 		db.Tickets = slices.DeleteFunc(db.Tickets, func(t *Ticket) bool {
@@ -389,7 +409,11 @@ func (a *App) handleTicketDelete(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 	a.removeFiles(removed)
-	http.Redirect(w, r, "/admin?msg=deleted", http.StatusSeeOther)
+	sep := "?"
+	if back != "/admin" {
+		sep = "&"
+	}
+	http.Redirect(w, r, back+sep+"msg=deleted", http.StatusSeeOther)
 }
 
 func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
@@ -446,6 +470,8 @@ func (a *App) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		s.MaxStorageMB = formInt(r, "max_storage_mb", s.MaxStorageMB, 0, 10000000)
 		s.AllowSelfDelete = r.FormValue("allow_self_delete") == "1"
 		s.SystemFont = r.FormValue("system_font") == "1"
+		s.SearchIndexing = r.FormValue("search_indexing") == "1"
+		s.MetaDescription = oneLine(cleanText(r.FormValue("meta_description"), 300))
 		s.ImprintURL = cleanURL(r.FormValue("imprint_url"))
 		s.ImprintText = cleanText(r.FormValue("imprint_text"), 20000)
 		s.PrivacyURL = cleanURL(r.FormValue("privacy_url"))

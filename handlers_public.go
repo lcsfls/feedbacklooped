@@ -152,7 +152,7 @@ func (a *App) handleSubmit(w http.ResponseWriter, r *http.Request) {
 		id = db.NextID
 		db.NextID++
 		db.Tickets = append(db.Tickets, &Ticket{
-			ID: id, Title: title, Body: body, Category: category, Contact: contact,
+			ID: id, BoardID: PublicBoardID, Title: title, Body: body, Category: category, Contact: contact,
 			Status: "inbox", Pos: minPos(db, "inbox"), TokenHash: hashToken(token),
 			Attachments: atts, CreatedAt: now, UpdatedAt: now,
 		})
@@ -267,7 +267,7 @@ func (a *App) handleRoadmap(w http.ResponseWriter, r *http.Request) {
 		Tickets    []*Ticket
 	}{{"review", "In review", nil}, {"planned", "Planned", nil}, {"done", "Done", nil}}
 	for _, t := range a.store.Tickets() {
-		if !t.OnRoadmap {
+		if !t.OnRoadmap || t.BoardID != PublicBoardID {
 			continue
 		}
 		for i := range cols {

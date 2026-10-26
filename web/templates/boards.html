@@ -1,0 +1,38 @@
+{{define "title"}}Boards · {{.S.Title}}{{end}}
+{{define "bodyclass"}}admin{{end}}
+{{define "content"}}
+<section class="narrow wider">
+  <p class="back"><a href="/admin">← Board</a></p>
+  <h1>Boards</h1>
+  <p class="lead">The public board receives everything sent through the feedback form and feeds the roadmap. Private boards are for your own work: only admins see them, nothing from outside lands there, and they never appear on the roadmap.</p>
+  {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+  <div class="card">
+    <table class="table">
+      <thead><tr><th>Name</th><th>Visibility</th><th>Cards</th><th></th></tr></thead>
+      <tbody>
+      {{range .Tabs}}
+        <tr>
+          <td>
+            <form method="post" action="/admin/boards/{{.ID}}" class="rename">
+              <input name="name" type="text" value="{{.Name}}" maxlength="60" aria-label="Board name" required>
+              <button class="btn">Rename</button>
+            </form>
+          </td>
+          <td>{{if .Public}}<span class="chip ghost">public</span>{{else}}<span class="chip ghost">private</span>{{end}}</td>
+          <td class="mono"><a href="{{boardURL .ID}}">{{.Count}}</a></td>
+          <td class="right">{{if not .Public}}{{if eq .Count 0}}<form method="post" action="/admin/boards/{{.ID}}/delete" class="inline confirm" data-confirm="Delete board “{{.Name}}”?"><button class="linklike danger">delete</button></form>{{else}}<span class="muted small" title="Move or delete its cards first">not empty</span>{{end}}{{end}}</td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h2>New private board</h2>
+    <form method="post" action="/admin/boards" class="inline-row">
+      <input name="name" type="text" maxlength="60" required placeholder="e.g. Internal, Sprint, Ideas">
+      <button class="btn primary">Create board</button>
+    </form>
+    <p class="hint">Cards can be moved between boards on each card’s page. Moving a submission to a private board keeps its status link working for the submitter.</p>
+  </div>
+</section>
+{{end}}

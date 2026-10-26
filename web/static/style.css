@@ -408,3 +408,18 @@ input:disabled { opacity: .6; }
   .inline-row { flex-direction: column; }
 }
 .mono-input { font-family: var(--font-mono) !important; letter-spacing: .08em; text-transform: uppercase; }
+
+/* Board tabs */
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; margin: -8px 0 18px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.tab { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: calc(var(--radius) - 2px); font-size: .875rem; font-weight: 500; color: var(--muted-foreground); text-decoration: none; }
+.tab:hover { color: var(--foreground); background: var(--accent); }
+.tab.active { color: var(--foreground); background: var(--card); box-shadow: var(--shadow-xs); border: 1px solid var(--border); }
+.tab-count { font-family: var(--font-mono); font-size: .72rem; color: var(--muted-foreground); }
+.tab .dot-new { margin-left: 0; }
+.tab-manage { color: var(--muted-foreground); border: 1px dashed var(--border); }
+.lock { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.rename { display: flex; gap: 6px; }
+.rename input { max-width: 260px; }
+.og-row { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+.og-preview { width: 300px; height: auto; aspect-ratio: 1200 / 630; object-fit: cover; border: 1px solid var(--border); border-radius: var(--radius); background: var(--muted); }
+.og-row > div { flex: 1; min-width: 240px; }

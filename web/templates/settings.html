@@ -48,6 +48,17 @@
       <label class="check"><input type="checkbox" name="hide_powered_by" value="1" {{if .S.Brand.HidePoweredBy}}checked{{end}}> Hide “Powered by feedbacklooped” footer</label>
     </div>
 
+    <div class="card" id="seo">
+      <h2>Search engines &amp; link previews</h2>
+      <label class="check"><input type="checkbox" name="search_indexing" value="1" {{if .S.SearchIndexing}}checked{{end}}> Let search engines index the public pages</label>
+      <p class="hint">Only the feedback form, the roadmap and your imprint and privacy pages, with a <code>sitemap.xml</code>. Status pages, attachments and the admin area are always excluded. Off: everything is <code>noindex</code>.</p>
+      <div class="field" style="margin-top:14px">
+        <label for="md">Description <span class="opt">(search results and link previews; empty = intro text)</span></label>
+        <input id="md" name="meta_description" type="text" maxlength="300" value="{{.S.MetaDescription}}" placeholder="{{.S.Intro}}">
+      </div>
+      <p class="hint">The preview image is set below under <a href="#og">Link preview image</a>.</p>
+    </div>
+
     <div class="card">
       <h2>Form</h2>
       <div class="field">
@@ -204,6 +215,22 @@
     <form method="post" action="/admin/branding/reset" class="confirm" data-confirm="Reset wordmark, colors and logo to the defaults?" style="margin-top:16px">
       <button class="btn ghost danger">Reset branding to defaults</button>
     </form>
+  </div>
+
+  <div class="card" id="og">
+    <h2>Link preview image</h2>
+    <div class="og-row">
+      <img class="og-preview" src="/brand/og{{if .S.Brand.OgFile}}?v={{.S.Brand.OgVersion}}{{end}}" alt="Current preview image" width="300" height="158">
+      <div>
+        <p class="hint" style="margin-top:0">Shown when the form or roadmap is shared in Slack, Teams, LinkedIn, WhatsApp, X … {{if .S.Brand.OgFile}}Your image is active.{{else}}A neutral default is used.{{end}} PNG or JPEG, 1200 × 630 px, max. 5 MB.</p>
+        <form method="post" action="/admin/branding/og" enctype="multipart/form-data" class="actions">
+          <input type="file" name="og" accept="image/png,image/jpeg" required>
+          <button class="btn">Upload</button>
+        </form>
+        {{if .S.Brand.OgFile}}<form method="post" action="/admin/branding/og/delete" class="confirm" data-confirm="Remove the preview image and use the default?" style="margin-top:10px"><button class="linklike danger">Remove image</button></form>{{end}}
+        <p class="hint">Status links always get a generic preview, so a shared link never shows what the feedback is about.</p>
+      </div>
+    </div>
   </div>
 
   <div class="card">

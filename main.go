@@ -180,7 +180,8 @@ func (a *App) loadTemplates() error {
 			b, err := json.Marshal(v)
 			return template.JS(b), err
 		},
-		"add": func(a, b int) int { return a + b },
+		"add":      func(a, b int) int { return a + b },
+		"boardURL": boardURL,
 		"dict": func(kv ...any) map[string]any {
 			m := map[string]any{}
 			for i := 0; i+1 < len(kv); i += 2 {
@@ -253,6 +254,23 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, name st
 	me := a.currentUser(r)
 	data["Admin"] = me != nil
 	data["Me"] = me
+	st := a.store.Settings()
+	base := a.baseURL(r)
+	indexable := st.SearchIndexing && (name == "submit" || name == "roadmap" || name == "legal")
+	data["Indexable"] = indexable
+	data["CanonicalURL"] = base + r.URL.Path
+	data["BaseURL"] = base
+	desc := st.MetaDescription
+	if desc == "" {
+		desc = st.Intro
+	}
+	if r := []rune(desc); len(r) > 200 {
+		desc = string(r[:197]) + "…"
+	}
+	data["MetaDesc"] = desc
+	if indexable {
+		w.Header().Del("X-Robots-Tag")
+	}
 	if name == "setup" {
 		data["NeedCode"] = a.setupCode != ""
 	}
@@ -318,6 +336,7 @@ func (a *App) securityHeaders(next http.Handler) http.Handler {
 		if a.isHTTPS(r) {
 			h.Set("Strict-Transport-Security", "max-age=31536000")
 		}
+		h.Set("X-Robots-Tag", "noindex, nofollow") // render() lifts it for indexable pages
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("X-Frame-Options", "DENY")
@@ -343,9 +362,9 @@ func (a *App) routes() http.Handler {
 	})
 	mux.HandleFunc("GET /brand/logo", a.handleLogo)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
-	mux.HandleFunc("GET /robots.txt", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("User-agent: *\nDisallow: /s/\nDisallow: /admin\nDisallow: /media/\n"))
-	})
+	mux.HandleFunc("GET /robots.txt", a.handleRobots)
+	mux.HandleFunc("GET /sitemap.xml", a.handleSitemap)
+	mux.HandleFunc("GET /brand/og", a.handleOg)
 
 	// public
 	mux.HandleFunc("GET /{$}", a.handleForm)
@@ -378,6 +397,10 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /admin/settings", a.admin(a.handleSettingsSave))
 	mux.HandleFunc("POST /admin/settings/test", a.admin(a.handleNotifyTest))
 	mux.HandleFunc("POST /admin/password", a.admin(a.handlePassword))
+	mux.HandleFunc("GET /admin/boards", a.admin(a.handleBoards))
+	mux.HandleFunc("POST /admin/boards", a.admin(a.handleBoardCreate))
+	mux.HandleFunc("POST /admin/boards/{id}", a.admin(a.handleBoardRename))
+	mux.HandleFunc("POST /admin/boards/{id}/delete", a.admin(a.handleBoardDelete))
 	mux.HandleFunc("GET /admin/users", a.admin(a.handleUsers))
 	mux.HandleFunc("POST /admin/users", a.admin(a.handleUserAdd))
 	mux.HandleFunc("POST /admin/users/{id}/delete", a.admin(a.handleUserDelete))
@@ -388,6 +411,8 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /admin/branding/logo", a.admin(a.handleLogoUpload))
 	mux.HandleFunc("POST /admin/branding/logo/delete", a.admin(a.handleLogoDelete))
 	mux.HandleFunc("POST /admin/branding/reset", a.admin(a.handleBrandReset))
+	mux.HandleFunc("POST /admin/branding/og", a.admin(a.handleOgUpload))
+	mux.HandleFunc("POST /admin/branding/og/delete", a.admin(a.handleOgDelete))
 
 	mux.HandleFunc("/", a.notFound)
 	return a.securityHeaders(mux)

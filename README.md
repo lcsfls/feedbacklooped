@@ -7,6 +7,8 @@ A minimal, self-hosted, white-label feedback portal with a kanban board. Let use
 - **Board:** Inbox → In review → Planned → Done / Declined, with drag & drop on the board and on each card’s page.
 - **Two-way conversation:** your replies show up on the submitter's status page, and they can add details there.
 - **Public roadmap** (optional, titles only).
+- **Private boards** next to the public one, for internal work that never leaves the admin area.
+- **Link previews and SEO:** Open Graph / Twitter card with your own image, optional indexing of the public pages with sitemap.
 - **Notifications** via ntfy, webhook (Slack/Mattermost/n8n compatible) or email.
 - **Multiple admins** with display names, shown next to replies and notes.
 - **Spam protection without third parties:** invisible proof-of-work check (ALTCHA-compatible), honeypot, rate limit.
@@ -41,6 +43,16 @@ Out of the box the portal uses a neutral look and a built-in mark. Under **Setti
 | Hide “Powered by” | Removes the footer credit. |
 
 Unchecked colors and an empty logo fall back to the defaults. **Reset branding** restores them all at once. Branding is stored with the other settings in `feedback.json`, the logo in `branding/` next to it, so a backup of the data directory covers it.
+
+## Boards
+
+The **public board** receives every submission from the feedback form and is the only source for the roadmap. Under **+ Board** you can add any number of **private boards** (e.g. *Internal*, *Sprint*): only admins see them, nothing from outside lands there and they never appear on the roadmap. Switch boards with the tabs above the board; move a card to another board on its page. A submission moved to a private board keeps its status link working.
+
+## Search engines & link previews
+
+Every page carries Open Graph and Twitter card tags, so links shared in Slack, Teams, LinkedIn, WhatsApp or X get a proper preview. Upload your own preview image (PNG/JPEG, 1200 × 630) under **Settings → Link preview image**; a neutral default is used otherwise.
+
+Indexing is **off** by default (`noindex` everywhere, `robots.txt` disallows all). Turn on **Let search engines index the public pages** to allow the form, the roadmap and your own imprint and privacy pages, with canonical links and a `sitemap.xml`. Status pages, attachments, APIs and the admin area are always `noindex` and disallowed. Status pages also use a generic title and preview, so pasting a status link into a chat never reveals what the feedback is about.
 
 ## Spam protection
 

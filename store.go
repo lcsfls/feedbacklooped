@@ -85,6 +85,7 @@ type Note struct {
 
 type Ticket struct {
 	ID           int          `json:"id"`
+	BoardID      int          `json:"board_id"`
 	Title        string       `json:"title"`
 	Body         string       `json:"body"`
 	Category     string       `json:"category"`
@@ -173,6 +174,9 @@ type Settings struct {
 	AllowSelfDelete   bool `json:"allow_self_delete"` // submitters may delete their feedback via the status link
 	SystemFont        bool `json:"system_font"`       // use the OS font instead of the bundled one
 
+	SearchIndexing  bool   `json:"search_indexing"`  // let search engines index form, roadmap, imprint, privacy
+	MetaDescription string `json:"meta_description"` // search results and link previews; empty = intro text
+
 	ImprintURL  string `json:"imprint_url"`
 	ImprintText string `json:"imprint_text"`
 	PrivacyURL  string `json:"privacy_url"`
@@ -204,11 +208,13 @@ func defaultSettings() Settings {
 }
 
 type dbFile struct {
-	NextID     int       `json:"next_id"`
-	Tickets    []*Ticket `json:"tickets"`
-	NextUserID int       `json:"next_user_id"`
-	Users      []*User   `json:"users"`
-	Settings   Settings  `json:"settings"`
+	NextID      int       `json:"next_id"`
+	Tickets     []*Ticket `json:"tickets"`
+	NextUserID  int       `json:"next_user_id"`
+	Users       []*User   `json:"users"`
+	NextBoardID int       `json:"next_board_id"`
+	Boards      []*Board  `json:"boards"`
+	Settings    Settings  `json:"settings"`
 }
 
 type Store struct {
@@ -239,6 +245,7 @@ func OpenStore(dataDir string) (*Store, error) {
 		}
 	}
 	migrateUsers(&s.db)
+	migrateBoards(&s.db)
 	if s.db.Settings.Secret == "" {
 		s.db.Settings.Secret = randomToken(32)
 	}

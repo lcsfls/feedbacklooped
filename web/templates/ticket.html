@@ -1,7 +1,7 @@
 {{define "title"}}#{{.T.ID}} {{.T.Title}} · {{.S.Title}}{{end}}
 {{define "bodyclass"}}wide admin{{end}}
 {{define "content"}}
-<p class="back"><a href="/admin">← Board</a></p>
+<p class="back"><a href="{{boardURL .T.BoardID}}">← {{with .Board}}{{.Name}}{{else}}Board{{end}}</a></p>
 <div class="detail">
   <div class="detail-main">
     <p class="eyebrow">#{{.T.ID}} · {{.T.Category}} · <span id="status-label">{{statusLabel .T.Status}}</span> · received {{datetime .T.CreatedAt}}</p>
@@ -83,6 +83,14 @@
         <label for="title">Title</label>
         <input id="title" name="title" type="text" value="{{.T.Title}}" maxlength="200">
       </div>
+      {{if gt (len .Boards) 1}}
+      <div class="field">
+        <label for="board">Board</label>
+        <select id="board" name="board">
+          {{range .Boards}}<option value="{{.ID}}" {{if eq .ID $.T.BoardID}}selected{{end}}>{{.Name}}{{if not .Public}} (private){{end}}</option>{{end}}
+        </select>
+      </div>
+      {{end}}
       <div class="field">
         <label for="category">Category</label>
         <select id="category" name="category">
@@ -93,11 +101,13 @@
         <label for="labels">Labels <span class="opt">(comma-separated)</span></label>
         <input id="labels" name="labels" type="text" value="{{join .T.Labels ", "}}" placeholder="e.g. v1.4, Exchange, urgent">
       </div>
+      {{if eq .T.BoardID 1}}
       <div class="field">
         <label class="check"><input type="checkbox" name="on_roadmap" value="1" {{if .T.OnRoadmap}}checked{{end}}> Show on public roadmap</label>
         <input name="roadmap_title" type="text" value="{{.T.RoadmapTitle}}" maxlength="200" placeholder="Public title (empty = title above)">
         <p class="hint">Only the title is shown, never the description or attachments. Visible in the In review, Planned and Done columns.</p>
       </div>
+      {{end}}
       <div class="actions"><button class="btn primary">Save</button></div>
     </form>
 

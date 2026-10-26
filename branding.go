@@ -29,6 +29,9 @@ type Brand struct {
 	LogoMime      string `json:"logo_mime"`       //
 	LogoVersion   int64  `json:"logo_version"`    // cache buster
 	HidePoweredBy bool   `json:"hide_powered_by"` // footer credit
+	OgFile        string `json:"og_file"`         // social preview image in <data>/branding
+	OgMime        string `json:"og_mime"`
+	OgVersion     int64  `json:"og_version"`
 }
 
 func defaultBrand() Brand {
@@ -156,14 +159,16 @@ func (a *App) handleLogoDelete(w http.ResponseWriter, r *http.Request) {
 // handleBrandReset restores the default branding (keeps the logo file on disk
 // only until it is replaced; the reference is removed).
 func (a *App) handleBrandReset(w http.ResponseWriter, r *http.Request) {
-	var old string
+	var old, og string
 	a.store.Update(func(db *dbFile) error {
-		old = db.Settings.Brand.LogoFile
+		old, og = db.Settings.Brand.LogoFile, db.Settings.Brand.OgFile
 		db.Settings.Brand = defaultBrand()
 		return nil
 	})
-	if old != "" {
-		os.Remove(filepath.Join(a.brandDir(), old))
+	for _, f := range []string{old, og} {
+		if f != "" {
+			os.Remove(filepath.Join(a.brandDir(), f))
+		}
 	}
 	http.Redirect(w, r, "/admin/settings?msg=saved#branding", http.StatusSeeOther)
 }
@@ -213,4 +218,77 @@ func defaultColor(c, def string) string {
 		return c
 	}
 	return def
+}
+
+// handleOgUpload stores the social preview image (Open Graph / Twitter card).
+func (a *App) handleOgUpload(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 6<<20)
+	f, _, err := r.FormFile("og")
+	if err != nil {
+		a.fail(w, r, 400, "Please choose an image (max. 5 MB).")
+		return
+	}
+	defer f.Close()
+	data, err := io.ReadAll(io.LimitReader(f, 5<<20+1))
+	if err != nil || len(data) > 5<<20 {
+		a.fail(w, r, 400, "The image is larger than 5 MB.")
+		return
+	}
+	mime, ext, err := sniff(data[:min(len(data), 4096)], "")
+	if err != nil || (mime != "image/png" && mime != "image/jpeg") {
+		a.fail(w, r, 400, "Link previews need a PNG or JPEG image (1200 × 630 px recommended).")
+		return
+	}
+	data = stripMetadata(mime, data)
+	dir := a.brandDir()
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		a.fail(w, r, 500, err.Error())
+		return
+	}
+	name := "og" + ext
+	if err := os.WriteFile(filepath.Join(dir, name), data, 0o640); err != nil {
+		a.fail(w, r, 500, err.Error())
+		return
+	}
+	var old string
+	a.store.Update(func(db *dbFile) error {
+		old = db.Settings.Brand.OgFile
+		db.Settings.Brand.OgFile, db.Settings.Brand.OgMime = name, mime
+		db.Settings.Brand.OgVersion = time.Now().Unix()
+		return nil
+	})
+	if old != "" && old != name {
+		os.Remove(filepath.Join(dir, old))
+	}
+	http.Redirect(w, r, "/admin/settings?msg=saved#seo", http.StatusSeeOther)
+}
+
+func (a *App) handleOgDelete(w http.ResponseWriter, r *http.Request) {
+	var old string
+	a.store.Update(func(db *dbFile) error {
+		old = db.Settings.Brand.OgFile
+		db.Settings.Brand.OgFile, db.Settings.Brand.OgMime = "", ""
+		return nil
+	})
+	if old != "" {
+		os.Remove(filepath.Join(a.brandDir(), old))
+	}
+	http.Redirect(w, r, "/admin/settings?msg=deleted#seo", http.StatusSeeOther)
+}
+
+func (a *App) handleOg(w http.ResponseWriter, r *http.Request) {
+	b := a.store.Settings().Brand
+	if b.OgFile == "" {
+		http.Redirect(w, r, "/static/og-default.png", http.StatusFound)
+		return
+	}
+	f, err := os.Open(filepath.Join(a.brandDir(), b.OgFile))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer f.Close()
+	w.Header().Set("Content-Type", b.OgMime)
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	http.ServeContent(w, r, "", time.Unix(b.OgVersion, 0), f)
 }
