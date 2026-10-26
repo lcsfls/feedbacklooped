@@ -3,6 +3,7 @@
 {{define "content"}}
 <section class="narrow wider">
   <h1>Your account</h1>
+  {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
   <div class="card">
     <h2>Profile</h2>
     <form method="post" action="/admin/account" class="form">
@@ -11,7 +12,13 @@
         <div class="field"><label for="dn">Display name</label><input id="dn" name="display_name" type="text" value="{{.Me.DisplayName}}" maxlength="60" placeholder="{{.Me.Username}}"></div>
       </div>
       <p class="hint">Shown next to your replies and notes. Submitters only see it if “Show team member names” is on in the settings.</p>
-      <div class="actions"><button class="btn primary">Save</button></div>
+      <div class="field" style="margin-top:18px">
+        <label for="em">Email <span class="opt">(optional, only used for notifications)</span></label>
+        <input id="em" name="email" type="email" value="{{.Me.Email}}" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <label class="check"><input type="checkbox" name="notify_email" value="1" {{if .Me.NotifyEmail}}checked{{end}}> Email me about new feedback and replies</label>
+      <p class="hint">Needs an SMTP server under <a href="/admin/settings#notifications">Settings → Notifications</a>.{{if not .S.SMTPHost}} None is configured yet.{{end}}</p>
+      <div class="actions" style="margin-top:14px"><button class="btn primary">Save</button></div>
     </form>
   </div>
   <div class="card">

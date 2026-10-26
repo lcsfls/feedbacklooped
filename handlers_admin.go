@@ -170,6 +170,9 @@ func (a *App) handleMove(w http.ResponseWriter, r *http.Request) {
 			t.Status = req.Status
 			t.UpdatedAt = time.Now()
 		}
+		if len(req.Order) == 0 { // moved from the card page: put it on top
+			t.Pos = minPos(db, req.Status)
+		}
 		for i, id := range req.Order {
 			if tt := findTicket(db, id); tt != nil && tt.Status == req.Status {
 				tt.Pos = float64(i)
@@ -472,9 +475,30 @@ func cleanURL(s string) string {
 }
 
 func (a *App) handleNotifyTest(w http.ResponseWriter, r *http.Request) {
-	st := a.store.Settings()
-	if st.NtfyURL == "" && st.WebhookURL == "" && (st.SMTPHost == "" || st.SMTPTo == "") {
-		a.render(w, r, 200, "settings", pageData{"TestResult": []string{"No channel configured. Save first, then test."}})
+	st := a.withAdminRecipients(a.store.Settings())
+	if to := strings.TrimSpace(r.FormValue("test_to")); to != "" {
+		if !emailRe.MatchString(to) {
+			a.render(w, r, 400, "settings", pageData{"TestResult": []string{"Error: “" + to + "” is not a valid email address."}, "TestTo": to})
+			return
+		}
+		st.SMTPTo = to
+	}
+	var channels []string
+	if st.NtfyURL != "" {
+		channels = append(channels, "ntfy")
+	}
+	if st.WebhookURL != "" {
+		channels = append(channels, "webhook")
+	}
+	if st.SMTPHost != "" && st.SMTPTo != "" {
+		channels = append(channels, "email to "+st.SMTPTo)
+	}
+	if len(channels) == 0 {
+		msg := "No channel configured. Set up ntfy, a webhook or an SMTP server above and save first."
+		if st.SMTPHost == "" && r.FormValue("test_to") != "" {
+			msg = "To test email, enter an SMTP server above and save first."
+		}
+		a.render(w, r, 200, "settings", pageData{"TestResult": []string{msg}, "TestTo": r.FormValue("test_to")})
 		return
 	}
 	e := Event{Kind: "new_ticket", TicketID: 0, Title: "Test notification", Category: "Test",
@@ -482,15 +506,15 @@ func (a *App) handleNotifyTest(w http.ResponseWriter, r *http.Request) {
 	if st.BaseURL != "" {
 		e.URL = st.BaseURL + "/admin"
 	}
-	var res []string
+	res := []string{"Sent via: " + strings.Join(channels, ", ")}
 	errs := a.sendAll(st, e)
 	for _, err := range errs {
 		res = append(res, "Error: "+err.Error())
 	}
 	if len(errs) == 0 {
-		res = append(res, "All configured channels were reached successfully.")
+		res = append(res, "All channels were reached successfully.")
 	}
-	a.render(w, r, 200, "settings", pageData{"TestResult": res})
+	a.render(w, r, 200, "settings", pageData{"TestResult": res, "TestTo": r.FormValue("test_to")})
 }
 
 // handleExport returns all tickets as JSON (without credentials), e.g. as a backup.

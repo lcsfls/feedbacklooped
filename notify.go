@@ -51,8 +51,23 @@ func (e Event) text() string {
 
 var httpClient = &http.Client{Timeout: 15 * time.Second}
 
+// withAdminRecipients adds the admins who opted in to the email recipients.
+func (a *App) withAdminRecipients(st Settings) Settings {
+	seen := map[string]bool{}
+	var to []string
+	for _, t := range append(strings.Split(st.SMTPTo, ","), a.store.notifyEmails()...) {
+		t = strings.TrimSpace(t)
+		if t != "" && !seen[strings.ToLower(t)] {
+			seen[strings.ToLower(t)] = true
+			to = append(to, t)
+		}
+	}
+	st.SMTPTo = strings.Join(to, ", ")
+	return st
+}
+
 func (a *App) notify(e Event) {
-	st := a.store.Settings()
+	st := a.withAdminRecipients(a.store.Settings())
 	if st.BaseURL != "" {
 		e.URL = strings.TrimRight(st.BaseURL, "/") + fmt.Sprintf("/admin/t/%d", e.TicketID)
 	}

@@ -15,6 +15,8 @@ type User struct {
 	Username    string    `json:"username"`
 	DisplayName string    `json:"display_name"`
 	PassHash    string    `json:"pass_hash"`
+	Email       string    `json:"email,omitempty"`        // optional, for notifications only
+	NotifyEmail bool      `json:"notify_email,omitempty"` // email me about new feedback and replies
 	CreatedAt   time.Time `json:"created_at"`
 	LastLoginAt time.Time `json:"last_login_at,omitempty"`
 }
@@ -28,6 +30,21 @@ func (u *User) Name() string {
 }
 
 var usernameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{1,31}$`)
+
+var emailRe = regexp.MustCompile(`^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$`)
+
+// notifyEmails returns the addresses of admins who opted in to email notifications.
+func (s *Store) notifyEmails() []string {
+	var out []string
+	s.View(func(db *dbFile) {
+		for _, u := range db.Users {
+			if u.NotifyEmail && u.Email != "" {
+				out = append(out, u.Email)
+			}
+		}
+	})
+	return out
+}
 
 func normalizeUsername(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 
@@ -187,9 +204,15 @@ func (a *App) handleAccount(w http.ResponseWriter, r *http.Request) {
 func (a *App) handleAccountSave(w http.ResponseWriter, r *http.Request) {
 	me := a.currentUser(r)
 	display := cleanText(r.FormValue("display_name"), 60)
+	email := strings.TrimSpace(r.FormValue("email"))
+	if email != "" && !emailRe.MatchString(email) {
+		a.render(w, r, 400, "account", pageData{"Error": "Please enter a valid email address."})
+		return
+	}
+	notify := r.FormValue("notify_email") == "1" && email != ""
 	a.store.Update(func(db *dbFile) error {
 		if u := findUser(db, me.ID); u != nil {
-			u.DisplayName = display
+			u.DisplayName, u.Email, u.NotifyEmail = display, email, notify
 		}
 		return nil
 	})

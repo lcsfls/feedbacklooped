@@ -71,7 +71,7 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="notifications">
       <h2>Notifications</h2>
       <p class="hint">Sent for new submissions and for replies from submitters. All channels are optional and can be combined.</p>
       <h3>ntfy</h3>
@@ -108,7 +108,7 @@
         <div class="field"><label for="sf">From</label><input id="sf" name="smtp_from" type="text" value="{{.S.SMTPFrom}}" placeholder="feedback@example.com"></div>
         <div class="field"><label for="st">To <span class="opt">(comma-separated)</span></label><input id="st" name="smtp_to" type="text" value="{{.S.SMTPTo}}"></div>
       </div>
-      <p class="hint">Port 587 uses STARTTLS, port 465 uses implicit TLS.</p>
+      <p class="hint">Port 587 uses STARTTLS, port 465 uses implicit TLS. Besides the addresses above, every admin who turned on email notifications under <a href="/admin/account">their account</a> gets a copy.</p>
     </div>
 
     <div class="card">
@@ -204,8 +204,16 @@
   <div class="card">
     <h2>Test notifications</h2>
     {{if .TestResult}}<ul class="results">{{range .TestResult}}<li>{{.}}</li>{{end}}</ul>{{end}}
-    <form method="post" action="/admin/settings/test"><button class="btn">Send test notification</button></form>
-    <p class="hint">Uses the saved settings.</p>
+    <form method="post" action="/admin/settings/test" class="form">
+      <div class="field">
+        <label for="tt">Send test email to <span class="opt">(optional)</span></label>
+        <div class="inline-row">
+          <input id="tt" name="test_to" type="email" value="{{or .TestTo .Me.Email}}" placeholder="you@example.com" autocomplete="email">
+          <button class="btn">Send test notification</button>
+        </div>
+        <p class="hint">Sends to every configured channel (ntfy, webhook, email). With an address here, the test email goes only to that address; leave it empty to use the regular recipients. Uses the saved settings.</p>
+      </div>
+    </form>
   </div>
 
   <div class="card">

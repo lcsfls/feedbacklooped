@@ -4,7 +4,7 @@ A minimal, self-hosted, white-label feedback portal with a kanban board. Let use
 
 - **Anonymous:** no account, no email address. Submitters get a private status link.
 - **Screenshots & videos:** drag & drop, paste with <kbd>Ctrl</kbd>+<kbd>V</kbd>, screen recording right in the browser.
-- **Board:** Inbox → In review → Planned → Done / Declined, with drag & drop.
+- **Board:** Inbox → In review → Planned → Done / Declined, with drag & drop on the board and on each card’s page.
 - **Two-way conversation:** your replies show up on the submitter's status page, and they can add details there.
 - **Public roadmap** (optional, titles only).
 - **Notifications** via ntfy, webhook (Slack/Mattermost/n8n compatible) or email.
@@ -60,7 +60,7 @@ Public forms are protected in three layers, none of which involves a third party
 
 ## Admins
 
-Any number of admin accounts, all with the same rights. Each has a username, an optional display name shown next to their replies and notes, and their own password. Submitters see “Team” by default, or “Name · Team” if you enable it. Changing a password logs that user out everywhere else; deleting a user ends their sessions immediately.
+Any number of admin accounts, all with the same rights. Each has a username, an optional display name shown next to their replies and notes, and their own password. Submitters see “Team” by default, or “Name · Team” if you enable it. Changing a password logs that user out everywhere else; deleting a user ends their sessions immediately. Under **Account**, each admin can add an email address and opt in to notifications about new feedback and replies; those addresses are added to the recipients configured under Settings → Notifications. The notification test can send a test email to any address.
 
 ## Environment variables
 

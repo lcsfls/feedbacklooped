@@ -4,8 +4,18 @@
 <p class="back"><a href="/admin">← Board</a></p>
 <div class="detail">
   <div class="detail-main">
-    <p class="eyebrow">#{{.T.ID}} · {{.T.Category}} · {{statusLabel .T.Status}} · received {{datetime .T.CreatedAt}}</p>
+    <p class="eyebrow">#{{.T.ID}} · {{.T.Category}} · <span id="status-label">{{statusLabel .T.Status}}</span> · received {{datetime .T.CreatedAt}}</p>
     <h1>{{.T.Title}}</h1>
+
+    <div class="track" id="track" data-id="{{.T.ID}}" aria-label="Status: drag the card into a column, or click one">
+      {{range statuses}}
+      <button type="button" class="lane lane-{{.Key}}{{if eq .Key $.T.Status}} current{{end}}" data-status="{{.Key}}" aria-pressed="{{if eq .Key $.T.Status}}true{{else}}false{{end}}">
+        <span class="lane-label">{{.Label}}</span>
+        {{if eq .Key $.T.Status}}<span class="token" draggable="true" id="token">#{{$.T.ID}}</span>{{end}}
+      </button>
+      {{end}}
+    </div>
+    <p class="hint track-hint" id="track-hint">Drag the card into a column or click one. Changes are saved right away.</p>
 
     <div class="card">
       {{if .T.Internal}}
@@ -74,12 +84,6 @@
         <input id="title" name="title" type="text" value="{{.T.Title}}" maxlength="200">
       </div>
       <div class="field">
-        <label for="status">Status</label>
-        <select id="status" name="status">
-          {{range statuses}}<option value="{{.Key}}" {{if eq .Key $.T.Status}}selected{{end}}>{{.Label}}</option>{{end}}
-        </select>
-      </div>
-      <div class="field">
         <label for="category">Category</label>
         <select id="category" name="category">
           {{range .S.Categories}}<option {{if eq . $.T.Category}}selected{{end}}>{{.}}</option>{{end}}
@@ -113,3 +117,4 @@
   </aside>
 </div>
 {{end}}
+{{define "scripts"}}<script src="/static/ticket.js?v={{.Version}}"></script>{{end}}

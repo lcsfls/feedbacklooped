@@ -143,13 +143,13 @@ main { max-width: 1400px; margin: 0 auto; padding: 32px 24px 64px; }
 .field > label, .label, legend { display: block; font-weight: 500; font-size: .875rem; margin-bottom: 8px; padding: 0; }
 .meta .label { display: inline; margin-right: 6px; color: var(--muted-foreground); }
 .opt { color: var(--muted-foreground); font-weight: 400; }
-input[type=text], input[type=url], input[type=password], input[type=number], input[type=search], select, textarea {
+input[type=text], input[type=url], input[type=password], input[type=number], input[type=search], input[type=email], select, textarea {
   width: 100%; min-height: 36px; font: inherit; font-size: .875rem; color: inherit; background: transparent;
   border: 1px solid var(--input); border-radius: calc(var(--radius) - 2px); padding: 6px 12px; box-shadow: var(--shadow-xs);
   transition: border-color .15s, box-shadow .15s;
 }
 @media (prefers-color-scheme: dark) {
-  input[type=text], input[type=url], input[type=password], input[type=number], input[type=search], select, textarea { background: color-mix(in srgb, var(--input) 30%, transparent); }
+  input[type=text], input[type=url], input[type=password], input[type=number], input[type=search], input[type=email], select, textarea { background: color-mix(in srgb, var(--input) 30%, transparent); }
 }
 select { padding-right: 8px; }
 select option { background: var(--card); }
@@ -374,3 +374,31 @@ input:disabled { opacity: .6; }
 .powered { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
 .selfdelete { text-align: center; margin-top: 8px; }
 .legal { line-height: 1.6; }
+
+/* Status track on the card page */
+.track { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 4px 0 6px; }
+.lane {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 10px;
+  min-height: 76px; padding: 10px 12px; font: inherit; text-align: left; cursor: pointer; color: var(--muted-foreground);
+  background: color-mix(in srgb, var(--muted) 70%, transparent); border: 1.5px dashed var(--border); border-radius: var(--radius);
+  transition: border-color .15s, background .15s, color .15s;
+}
+.lane:hover { color: var(--foreground); border-color: var(--input); }
+.lane-label { font-size: .75rem; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; }
+.lane.current { color: var(--foreground); background: var(--card); border-style: solid; border-color: var(--input); box-shadow: var(--shadow-xs); }
+.lane.over { border-color: var(--primary); border-style: solid; background: color-mix(in srgb, var(--primary) 6%, var(--card)); color: var(--foreground); }
+.lane.saving { opacity: .7; }
+.track.dragging .lane:not(.current) { border-color: var(--input); }
+.token {
+  display: inline-flex; align-items: center; height: 28px; padding: 0 10px; cursor: grab; user-select: none;
+  font-family: var(--font-mono); font-size: .8rem; font-weight: 500;
+  background: var(--primary); color: var(--primary-foreground); border-radius: calc(var(--radius) - 2px); box-shadow: var(--shadow-sm);
+}
+.token:active { cursor: grabbing; }
+.track-hint { margin: 0 0 16px; }
+.inline-row { display: flex; gap: 8px; }
+.inline-row input { flex: 1; }
+@media (max-width: 700px) {
+  .track { grid-template-columns: 1fr 1fr; }
+  .inline-row { flex-direction: column; }
+}
