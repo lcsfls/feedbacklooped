@@ -28,7 +28,15 @@
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">{{end}}
 </head>
-<body class="{{block "bodyclass" .}}{{end}}">
+<body class="{{block "bodyclass" .}}{{end}}{{if .Embed}} embed{{end}}"{{if .Embed}} data-embed{{end}}>
+{{if .Embed}}
+<header class="embed-top">
+  <span class="brand">{{if .S.Brand.LogoFile}}<img class="logo" src="/brand/logo?v={{.S.Brand.LogoVersion}}" alt="">{{else}}<svg class="mark" viewBox="0 0 48 48" aria-hidden="true"><path class="hold" d="M14 9 h20 a8 8 0 0 1 8 8 v10 a8 8 0 0 1 -8 8 h-12 l-9 6 v-6.5 a8 8 0 0 1 -7 -7.5 v-10 a8 8 0 0 1 8 -8 z"/><rect class="beam" x="15" y="19.5" width="18" height="6" rx="2"/></svg>{{end}}<span class="brand-plain">{{.S.Title}}</span></span>
+  <button type="button" class="embed-close" id="embed-close" aria-label="Close">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button>
+</header>
+{{else}}
 <header class="top">
   <div class="top-inner">
     <a class="brand" href="{{if .Admin}}/admin{{else}}/{{end}}" aria-label="{{.S.Title}}">
@@ -52,15 +60,16 @@
     </nav>
   </div>
 </header>
+{{end}}
 {{if .Flash}}<div class="flash" role="status">{{.Flash}}</div>{{end}}
 <main>
 {{block "content" .}}{{end}}
 </main>
 {{$imp := or .S.ImprintText .S.ImprintURL}}{{$priv := or .S.PrivacyText .S.PrivacyURL}}
 {{if or $imp $priv (not .S.Brand.HidePoweredBy)}}<footer class="powered">
-  {{if $imp}}<a href="/imprint">Imprint</a>{{end}}
-  {{if $priv}}<a href="/privacy">Privacy</a>{{end}}
-  {{if not .S.Brand.HidePoweredBy}}<span>Powered by <a href="https://github.com/lcsfls/feedbacklooped" rel="noopener">feedbacklooped</a></span>{{end}}
+  {{if $imp}}<a href="/imprint"{{if .Embed}} target="_blank" rel="noopener"{{end}}>Imprint</a>{{end}}
+  {{if $priv}}<a href="/privacy"{{if .Embed}} target="_blank" rel="noopener"{{end}}>Privacy</a>{{end}}
+  {{if not .S.Brand.HidePoweredBy}}<span>Powered by <a href="https://github.com/lcsfls/feedbacklooped" target="_blank" rel="noopener">feedbacklooped</a></span>{{end}}
 </footer>{{end}}
 <script src="/static/common.js?v={{.Version}}"></script>
 {{if .S.CaptchaEnabled}}<script src="/static/pow.js?v={{.Version}}"></script>{{end}}

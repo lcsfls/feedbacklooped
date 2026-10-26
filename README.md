@@ -3,7 +3,8 @@
 A minimal, self-hosted, white-label feedback portal with a kanban board. Let users report bugs and ideas anonymously, with screenshots and screen recordings, and close the loop with them through a private status link.
 
 - **Anonymous:** no account, no email address. Submitters get a private status link.
-- **Screenshots & videos:** drag & drop, paste with <kbd>Ctrl</kbd>+<kbd>V</kbd>, screen recording right in the browser.
+- **Screenshots & videos:** take a screenshot of a tab, window or screen and mark it up (pen, box, circle, arrow, hide sensitive parts), record the screen, drag & drop or paste with <kbd>Ctrl</kbd>+<kbd>V</kbd> – all in the browser.
+- **On any website:** prefilled links or an embeddable widget (one `<script>` tag) that sends the page URL along.
 - **Board:** Inbox → In review → Planned → Done / Declined, with drag & drop on the board and on each card’s page.
 - **Two-way conversation:** your replies show up on the submitter's status page, and they can add details there.
 - **Public roadmap** (optional, titles only).
@@ -43,6 +44,32 @@ Out of the box the portal uses a neutral look and a built-in mark. Under **Setti
 | Hide “Powered by” | Removes the footer credit. |
 
 Unchecked colors and an empty logo fall back to the defaults. **Reset branding** restores them all at once. Branding is stored with the other settings in `feedback.json`, the logo in `branding/` next to it, so a backup of the data directory covers it.
+
+## Screenshots & markup
+
+**Take screenshot** captures a single frame of a browser tab, a window or the whole screen (the browser asks which). Every screenshot – captured, pasted or uploaded – can be marked up before sending: pen, box, circle, arrow, and **Hide**, which covers passwords or names with a solid block (not a blur, which can be reversed). Undo with <kbd>Ctrl</kbd>+<kbd>Z</kbd>; tools have single-key shortcuts (P, B, C, A, H). The marked-up image is uploaded as a PNG; nothing leaves the browser before you send.
+
+Screen capture needs a desktop browser; on phones, upload or paste a screenshot and mark it up.
+
+## Links & widget
+
+**Prefilled links** – link to the form from your app, docs or emails:
+
+```
+https://feedback.example.com/?category=Bug&context=app+1.4&title=…&page=https://app.example.com/current/page
+```
+
+`category` must match one of your categories; `context` and `page` are stored with the card and shown on its page. The user sees them as “Sent from …” and can remove them. A generator is under **Settings → Share & embed**.
+
+**Widget** – a floating “Feedback” button for any website:
+
+```html
+<script src="https://feedback.example.com/widget.js" async data-label="Feedback" data-context="app 1.4"></script>
+```
+
+It opens the form in a panel (an iframe on your feedback domain, so the host page never sees what is typed) and passes the current page URL. Screenshot, markup and screen recording work inside the panel. Options: `data-label`, `data-context`, `data-category`, `data-position="left"`, `data-button="false"` to use your own trigger with `Feedbacklooped.open({ context, category, title })` and `Feedbacklooped.close()`.
+
+Embedding is **off** until you list the allowed sites under **Settings → Share & embed** – only those may frame the form (`frame-ancestors`); everything else stays `DENY`. If the host site has a Content Security Policy, allow your feedback domain in `script-src` and `frame-src`.
 
 ## Boards
 
@@ -160,6 +187,10 @@ Please don’t open a public issue. Use GitHub’s private vulnerability reporti
 ## Backup
 
 Back up the volume or data directory: `feedback.json` and `uploads/`. A JSON export of all cards is also available under *Settings → Data*.
+
+## Development
+
+Every push and pull request runs CI (GitHub Actions): `gofmt`, `go vet`, build with the oldest supported and the current Go version, a smoke test of the running server, and a Docker build. Dependabot keeps the base images and actions up to date.
 
 ## Local development
 

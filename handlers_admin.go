@@ -472,6 +472,7 @@ func (a *App) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		s.SystemFont = r.FormValue("system_font") == "1"
 		s.SearchIndexing = r.FormValue("search_indexing") == "1"
 		s.MetaDescription = oneLine(cleanText(r.FormValue("meta_description"), 300))
+		s.EmbedOrigins = parseOrigins(r.FormValue("embed_origins"))
 		s.ImprintURL = cleanURL(r.FormValue("imprint_url"))
 		s.ImprintText = cleanText(r.FormValue("imprint_text"), 20000)
 		s.PrivacyURL = cleanURL(r.FormValue("privacy_url"))

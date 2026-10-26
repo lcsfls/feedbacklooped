@@ -48,6 +48,35 @@
       <label class="check"><input type="checkbox" name="hide_powered_by" value="1" {{if .S.Brand.HidePoweredBy}}checked{{end}}> Hide “Powered by feedbacklooped” footer</label>
     </div>
 
+    <div class="card" id="share">
+      <h2>Share &amp; embed</h2>
+      <h3>Link</h3>
+      <p class="hint" style="margin-top:0">Link to the form from your app, docs or emails. You can preset the category, a title and a context (e.g. the product and version), and pass the page the user came from.</p>
+      <div class="grid3 share-gen" id="link-gen" data-base="{{.BaseURL}}">
+        <div class="field"><label for="lg-cat">Category</label>
+          <select id="lg-cat"><option value="">– none –</option>{{range .S.Categories}}<option>{{.}}</option>{{end}}</select></div>
+        <div class="field"><label for="lg-ctx">Context</label><input id="lg-ctx" type="text" placeholder="e.g. app 1.4"></div>
+        <div class="field"><label for="lg-title">Title</label><input id="lg-title" type="text" placeholder="optional"></div>
+      </div>
+      <div class="copyline"><input type="text" id="lg-out" readonly aria-label="Generated link"><button type="button" class="btn" data-copy="lg-out">Copy</button></div>
+      <p class="hint">Add <code>&amp;page=…</code> with the current page URL from your app if you want to know where feedback came from. Submitters see it and can remove it.</p>
+
+      <h3>Widget</h3>
+      <p class="hint" style="margin-top:0">A “Feedback” button for any website. It opens the form in a panel, including screenshots with markup and screen recording, and sends the page URL along (visible and removable for the user).</p>
+      <div class="field" style="margin-top:12px">
+        <label for="eo">Websites allowed to embed the form <span class="opt">(one per line)</span></label>
+        <textarea id="eo" name="embed_origins" rows="3" placeholder="https://app.example.com">{{join .S.EmbedOrigins "\n"}}</textarea>
+        <p class="hint">Only these sites may show the form in a frame; leave empty to switch the widget off. Save the settings before you test.</p>
+      </div>
+      <div class="grid3 share-gen" id="snip-gen" data-base="{{.BaseURL}}">
+        <div class="field"><label for="sg-label">Button label</label><input id="sg-label" type="text" value="Feedback"></div>
+        <div class="field"><label for="sg-ctx">Context</label><input id="sg-ctx" type="text" placeholder="e.g. app 1.4"></div>
+        <div class="field"><label for="sg-pos">Position</label><select id="sg-pos"><option value="right">Bottom right</option><option value="left">Bottom left</option></select></div>
+      </div>
+      <div class="codebox"><pre><code id="sg-out"></code></pre><button type="button" class="btn" data-copy="sg-out">Copy</button></div>
+      <p class="hint">Paste it before <code>&lt;/body&gt;</code>. If the site has a Content Security Policy, allow <code>{{.BaseURL}}</code> in <code>script-src</code> and <code>frame-src</code>. Use your own button instead with <code>data-button="false"</code> and <code>Feedbacklooped.open()</code>.</p>
+    </div>
+
     <div class="card" id="seo">
       <h2>Search engines &amp; link previews</h2>
       <label class="check"><input type="checkbox" name="search_indexing" value="1" {{if .S.SearchIndexing}}checked{{end}}> Let search engines index the public pages</label>
@@ -311,3 +340,4 @@ Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Vera
   <div class="colorrow"><input type="color" name="{{.Key}}" value="{{defaultColor .Val .Def}}" aria-label="{{.Label}}"><span class="hint" style="margin:0">{{.Hint}}</span></div>
 </div>
 {{end}}
+{{define "scripts"}}<script src="/static/share.js?v={{.Version}}"></script>{{end}}

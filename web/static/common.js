@@ -74,3 +74,19 @@ window.flip = (els, mutate) => {
     if (dx || dy) el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 260, easing: 'cubic-bezier(.22,1,.36,1)' });
   });
 };
+
+// Embedded in the widget: tell the host page to close the panel.
+if (document.body.hasAttribute('data-embed') && window.parent !== window) {
+  const closeEmbed = () => window.parent.postMessage({ type: 'feedbacklooped:close' }, '*');
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#embed-close, [data-embed-close]')) closeEmbed();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !document.querySelector('.mk')) closeEmbed(); });
+}
+// "Sent from" chip: let people drop the page/context before sending.
+document.getElementById('sentfrom-remove')?.addEventListener('click', () => {
+  const box = document.getElementById('sentfrom');
+  box.querySelectorAll('input').forEach((i) => { i.value = ''; });
+  box.classList.add('removed');
+  setTimeout(() => box.remove(), 250);
+});

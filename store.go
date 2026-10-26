@@ -92,6 +92,8 @@ type Ticket struct {
 	Status       string       `json:"status"`
 	Pos          float64      `json:"pos"`
 	Contact      string       `json:"contact,omitempty"`
+	Context      string       `json:"context,omitempty"`  // from a prefilled link or the widget, e.g. "app 1.4"
+	PageURL      string       `json:"page_url,omitempty"` // page the feedback was sent from
 	Labels       []string     `json:"labels,omitempty"`
 	OnRoadmap    bool         `json:"on_roadmap"`
 	RoadmapTitle string       `json:"roadmap_title,omitempty"`
@@ -176,6 +178,8 @@ type Settings struct {
 
 	SearchIndexing  bool   `json:"search_indexing"`  // let search engines index form, roadmap, imprint, privacy
 	MetaDescription string `json:"meta_description"` // search results and link previews; empty = intro text
+
+	EmbedOrigins []string `json:"embed_origins"` // sites allowed to embed the form (widget)
 
 	ImprintURL  string `json:"imprint_url"`
 	ImprintText string `json:"imprint_text"`

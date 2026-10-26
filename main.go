@@ -339,10 +339,16 @@ func (a *App) securityHeaders(next http.Handler) http.Handler {
 		h.Set("X-Robots-Tag", "noindex, nofollow") // render() lifts it for indexable pages
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "no-referrer")
-		h.Set("X-Frame-Options", "DENY")
+		ancestors := "'none'"
+		if origins := a.store.Settings().EmbedOrigins; len(origins) > 0 && r.URL.Query().Get("embed") == "1" &&
+			(r.URL.Path == "/" || r.URL.Path == "/submit") {
+			ancestors = strings.Join(origins, " ") // only the form may be framed, only by these sites
+		} else {
+			h.Set("X-Frame-Options", "DENY")
+		}
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), display-capture=(self)")
 		h.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; "+
-			"style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+			"style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors "+ancestors+"; base-uri 'none'; form-action 'self'")
 		next.ServeHTTP(w, r)
 	})
 }
@@ -373,6 +379,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /s/{token}/reply", a.handleSubmitterReply)
 	mux.HandleFunc("GET /roadmap", a.handleRoadmap)
 	mux.HandleFunc("GET /api/challenge", a.handleChallenge)
+	mux.HandleFunc("GET /widget.js", a.handleWidget)
 	mux.HandleFunc("POST /s/{token}/delete", a.handleSelfDelete)
 	mux.HandleFunc("GET /imprint", a.handleLegal("imprint"))
 	mux.HandleFunc("GET /privacy", a.handleLegal("privacy"))

@@ -116,6 +116,8 @@
         <p>Internal card, no status link.</p>
       {{else}}
         <p><span class="label">Contact</span> {{if .T.Contact}}{{.T.Contact}}{{else}}<span class="muted">anonymous</span>{{end}}</p>
+        {{if .T.Context}}<p><span class="label">Context</span> {{.T.Context}}</p>{{end}}
+        {{if .T.PageURL}}<p class="pageurl"><span class="label">Sent from</span> <a href="{{.T.PageURL}}" target="_blank" rel="noopener noreferrer">{{.T.PageURL}}</a></p>{{end}}
         <p class="hint">Only the submitter knows the status link. It is stored as a hash and can’t be shown here.</p>
       {{end}}
       <p><span class="label">Last updated</span> {{datetime .T.UpdatedAt}}</p>

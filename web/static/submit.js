@@ -81,9 +81,29 @@
       rm.className = 'linklike danger';
       rm.textContent = 'remove';
       rm.addEventListener('click', () => { files.splice(i, 1); render(); });
-      li.append(thumb, name, size, rm);
+      const actions = document.createElement('span');
+      actions.className = 'factions';
+      if (/^image\/(png|jpeg|webp)$/.test(f.type) && window.markupImage) {
+        const mk = document.createElement('button');
+        mk.type = 'button';
+        mk.className = 'linklike';
+        mk.textContent = 'mark up';
+        mk.addEventListener('click', () => markup(i));
+        actions.append(mk);
+      }
+      actions.append(rm);
+      li.append(thumb, name, size, actions);
       list.append(li);
     });
+  }
+
+  async function markup(i) {
+    try {
+      const edited = await window.markupImage(files[i]);
+      if (edited) { files[i] = edited; render(); }
+    } catch {
+      showError('This image could not be opened for markup.');
+    }
   }
 
   input.addEventListener('change', () => {
@@ -116,6 +136,24 @@
   const recRow = document.getElementById('rec-row');
   const recBtn = document.getElementById('rec-btn');
   const recLabel = document.getElementById('rec-label');
+  const shotBtn = document.getElementById('shot-btn');
+  if (navigator.mediaDevices?.getDisplayMedia && window.captureScreenshot) {
+    shotBtn.addEventListener('click', async () => {
+      showError('');
+      let blob;
+      try {
+        blob = await window.captureScreenshot();
+      } catch {
+        return; // cancelled
+      }
+      if (!blob) return;
+      const shot = new File([blob], `screenshot-${stamp()}.png`, { type: 'image/png' });
+      const edited = await window.markupImage(shot).catch(() => shot);
+      if (edited) addFiles([edited]);
+    });
+  } else {
+    shotBtn.hidden = true;
+  }
   if (navigator.mediaDevices?.getDisplayMedia && window.MediaRecorder) {
     recRow.hidden = false;
     let recorder = null;
@@ -225,6 +263,7 @@
         }
       });
       done.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (window.parent !== window) window.parent.postMessage({ type: 'feedbacklooped:sent' }, '*'); // no content, just the event
     };
     xhr.send(fd);
   });

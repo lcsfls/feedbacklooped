@@ -2,11 +2,20 @@
 {{define "content"}}
 <section class="narrow">
   <h1>What did you notice?</h1>
-  {{if .S.Intro}}<p class="lead">{{.S.Intro}}</p>{{end}}
+  {{if and .S.Intro (not .Embed)}}<p class="lead">{{.S.Intro}}</p>{{end}}
 
-  <form id="fb-form" class="card form" method="post" action="/submit" enctype="multipart/form-data" {{if .S.CaptchaEnabled}}data-pow{{end}}
+  <form id="fb-form" class="card form" method="post" action="/submit{{if .Embed}}?embed=1{{end}}" enctype="multipart/form-data" {{if .S.CaptchaEnabled}}data-pow{{end}}
         data-max-files="{{.S.MaxFiles}}" data-max-mb="{{.S.MaxFileMB}}" data-max-sec="{{.S.MaxRecordSec}}">
     <input type="hidden" name="stamp" value="{{.Stamp}}">
+    {{if or .P.Context .P.Page}}
+    <div class="sentfrom" id="sentfrom">
+      <input type="hidden" name="context" value="{{.P.Context}}">
+      <input type="hidden" name="page" value="{{.P.Page}}">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+      <span class="sentfrom-text">Sent from {{if .P.Context}}<strong>{{.P.Context}}</strong>{{end}}{{if and .P.Context .P.Page}}, {{end}}{{if .P.Page}}<span class="sentfrom-page">{{.P.Page}}</span>{{end}}</span>
+      <button type="button" class="linklike" id="sentfrom-remove" title="Don't send this information">don’t include</button>
+    </div>
+    {{end}}
     <div class="hp" aria-hidden="true">
       <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
     </div>
@@ -16,7 +25,7 @@
       <legend>What is it about?</legend>
       <div class="segmented">
         {{range $i, $c := .S.Categories}}
-        <label><input type="radio" name="category" value="{{$c}}" {{if eq $i 0}}checked{{end}}><span>{{$c}}</span></label>
+        <label><input type="radio" name="category" value="{{$c}}" {{if $.P.Category}}{{if eq $c $.P.Category}}checked{{end}}{{else if eq $i 0}}checked{{end}}><span>{{$c}}</span></label>
         {{end}}
       </div>
     </fieldset>
@@ -24,7 +33,7 @@
 
     <div class="field">
       <label for="title">Short summary</label>
-      <input id="title" name="title" type="text" maxlength="200" required placeholder="e.g. Export stops halfway through">
+      <input id="title" name="title" type="text" maxlength="200" required placeholder="e.g. Export stops halfway through" value="{{.P.Title}}">
     </div>
 
     <div class="field">
@@ -40,10 +49,14 @@
         <span class="drop-sub">Paste a screenshot from the clipboard with <kbd>Ctrl</kbd>+<kbd>V</kbd> · up to {{.S.MaxFiles}} files, {{.S.MaxFileMB}} MB each</span>
       </label>
       <div class="rec-row" id="rec-row" hidden>
+        <button type="button" class="btn ghost" id="shot-btn">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
+          <span>Take screenshot</span>
+        </button>
         <button type="button" class="btn ghost" id="rec-btn">
           <span class="dot" aria-hidden="true"></span><span id="rec-label">Record screen</span>
         </button>
-        <span class="rec-hint" id="rec-hint">Records a tab, a window or your whole screen, max. {{.S.MaxRecordSec}} s. No audio.</span>
+        <span class="rec-hint" id="rec-hint">Capture a tab, a window or your screen. Screenshots can be marked up before sending; recordings run up to {{.S.MaxRecordSec}} s, no audio.</span>
       </div>
       <ul class="filelist" id="filelist"></ul>
     </div>
@@ -69,10 +82,12 @@
       <input type="text" id="status-url" readonly>
       <button class="btn" type="button" id="copy">Copy</button>
     </div>
-    <p class="actions-inline"><a class="btn ghost" id="status-open" href="#">Open status page</a> <a href="/" class="muted-link">Report something else</a></p>
+    <p class="actions-inline"><a class="btn ghost" id="status-open" href="#" target="_blank" rel="noopener">Open status page</a>
+      {{if .Embed}}<button type="button" class="btn" data-embed-close>Close</button>{{else}}<a href="/" class="muted-link">Report something else</a>{{end}}</p>
   </div>
 
   <p class="privacy">We do not store IP addresses or set cookies. Location and camera data are removed from images.{{if or .S.PrivacyText .S.PrivacyURL}} <a href="/privacy">Privacy policy</a>{{end}}</p>
 </section>
 {{end}}
-{{define "scripts"}}<script src="/static/submit.js?v={{.Version}}"></script>{{end}}
+{{define "scripts"}}<script src="/static/markup.js?v={{.Version}}"></script>
+<script src="/static/submit.js?v={{.Version}}"></script>{{end}}

@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go ${{ matrix.go }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Oldest supported version (go.mod) and the current stable release.
+        go: ["1.24", "stable"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - name: vet
+        run: go vet ./...
+      - name: build
+        run: go build -trimpath -o /dev/null .
+      - name: smoke test
+        run: |
+          go build -o fbl .
+          FL_DATA=$RUNNER_TEMP/data FL_LISTEN=127.0.0.1:8080 ./fbl &
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8080/healthz && break; sleep 0.5; done
+          curl -fsS http://127.0.0.1:8080/ | grep -q 'id="fb-form"'
+          curl -fsS http://127.0.0.1:8080/widget.js | grep -q 'Feedbacklooped'
+          curl -fsSI http://127.0.0.1:8080/ | grep -qi 'content-security-policy'
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build
+        run: docker build -t feedbacklooped:ci .
+      - name: run
+        run: |
+          docker run -d --name fbl -p 127.0.0.1:8080:8080 feedbacklooped:ci
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8080/healthz && break; sleep 0.5; done
+          docker logs fbl 2>&1 | grep -q 'setup code'

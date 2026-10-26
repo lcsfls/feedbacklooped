@@ -15,8 +15,44 @@ import (
 	"unicode/utf8"
 )
 
+// Prefill holds values passed in a link or by the widget:
+// /?category=Bug&title=…&context=app+1.4&page=https://…
+type Prefill struct {
+	Category, Title, Context, Page string
+}
+
+func (a *App) prefill(r *http.Request) Prefill {
+	q := r.URL.Query()
+	st := a.store.Settings()
+	p := Prefill{
+		Title:   oneLine(cleanText(q.Get("title"), 200)),
+		Context: oneLine(cleanText(q.Get("context"), 200)),
+		Page:    cleanPageURL(q.Get("page")),
+	}
+	for _, c := range st.Categories {
+		if strings.EqualFold(c, q.Get("category")) {
+			p.Category = c
+		}
+	}
+	return p
+}
+
+// cleanPageURL keeps http(s) URLs only and drops the fragment.
+func cleanPageURL(s string) string {
+	s = strings.TrimSpace(s)
+	if len(s) > 1000 {
+		return ""
+	}
+	u, err := url.Parse(s)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return ""
+	}
+	u.Fragment = ""
+	return u.String()
+}
+
 func (a *App) handleForm(w http.ResponseWriter, r *http.Request) {
-	a.render(w, r, 200, "submit", pageData{"Stamp": a.formStamp()})
+	a.render(w, r, 200, "submit", pageData{"Stamp": a.formStamp(), "P": a.prefill(r), "Embed": r.URL.Query().Get("embed") == "1"})
 }
 
 // parseUpload limits the request size and parses the multipart form.
@@ -133,6 +169,8 @@ func (a *App) handleSubmit(w http.ResponseWriter, r *http.Request) {
 	body := cleanText(r.FormValue("body"), 20000)
 	category := r.FormValue("category")
 	contact := cleanText(r.FormValue("contact"), 200)
+	context := oneLine(cleanText(r.FormValue("context"), 200))
+	pageURL := cleanPageURL(r.FormValue("page"))
 	if title == "" {
 		a.fail(w, r, 400, "Please add a short summary.")
 		return
@@ -152,7 +190,7 @@ func (a *App) handleSubmit(w http.ResponseWriter, r *http.Request) {
 		id = db.NextID
 		db.NextID++
 		db.Tickets = append(db.Tickets, &Ticket{
-			ID: id, BoardID: PublicBoardID, Title: title, Body: body, Category: category, Contact: contact,
+			ID: id, BoardID: PublicBoardID, Title: title, Body: body, Category: category, Contact: contact, Context: context, PageURL: pageURL,
 			Status: "inbox", Pos: minPos(db, "inbox"), TokenHash: hashToken(token),
 			Attachments: atts, CreatedAt: now, UpdatedAt: now,
 		})
