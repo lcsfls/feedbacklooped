@@ -80,7 +80,8 @@ func brandCSS(b Brand) template.CSS {
 		out.WriteString(":root{" + light.String() + "}")
 	}
 	if dark.Len() > 0 {
-		out.WriteString("@media (prefers-color-scheme: dark){:root{" + dark.String() + "}}")
+		out.WriteString("@media (prefers-color-scheme: dark){:root:not([data-theme=light]){" + dark.String() + "}}")
+		out.WriteString(":root[data-theme=dark]{" + dark.String() + "}")
 	}
 	return template.CSS(out.String())
 }

@@ -320,28 +320,58 @@ func (a *App) handleRoadmap(w http.ResponseWriter, r *http.Request) {
 	type rmCol struct {
 		Key, Label string
 		Tickets    []*Ticket
+		Matches    int
 	}
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	if len(q) > 100 {
+		q = q[:100]
+	}
+	words := strings.Fields(strings.ToLower(q))
+	showAll := r.URL.Query().Get("all") == "1" || len(words) > 0
 	tickets := slices.DeleteFunc(a.store.Tickets(), func(t *Ticket) bool { return !t.VisibleOnRoadmap() })
-	cols := []rmCol{{"review", "In review", nil}, {"planned", "Planned", nil}}
-	if st.DevStage || slices.ContainsFunc(tickets, func(t *Ticket) bool { return t.Status == DevStatus }) {
-		cols = append(cols, rmCol{DevStatus, "In development", nil})
+	// Everything stays on the page so the live search can widen again;
+	// non-matching items are only hidden.
+	miss := map[int]bool{}
+	for _, t := range tickets {
+		text := t.PublicSearchText()
+		for _, w := range words {
+			if !strings.Contains(text, w) {
+				miss[t.ID] = true
+				break
+			}
+		}
 	}
-	cols = append(cols, rmCol{"done", "Done", nil})
+	cols := []rmCol{{Key: "review", Label: "In review"}, {Key: "planned", Label: "Planned"}}
+	if st.DevStage || slices.ContainsFunc(tickets, func(t *Ticket) bool { return t.Status == DevStatus }) {
+		cols = append(cols, rmCol{Key: DevStatus, Label: "In development"})
+	}
+	cols = append(cols, rmCol{Key: "done", Label: "Done"})
 	for _, t := range tickets {
 		for i := range cols {
 			if cols[i].Key == t.Status {
 				cols[i].Tickets = append(cols[i].Tickets, t)
+				if !miss[t.ID] {
+					cols[i].Matches++
+				}
 			}
 		}
 	}
-	// Done: most recently finished first, max. 25.
+	// Done: most recently finished first. Older ones are on the page (so the
+	// live search finds them) but folded away behind "Show older".
+	const recentDone = 25
 	last := len(cols) - 1
 	done := cols[last].Tickets
 	sort.SliceStable(done, func(i, j int) bool { return done[i].UpdatedAt.After(done[j].UpdatedAt) })
-	if len(done) > 25 {
-		cols[last].Tickets = done[:25]
+	limit := recentDone
+	if showAll {
+		limit = len(done)
 	}
-	a.render(w, r, 200, "roadmap", pageData{"Cols": cols})
+	total := 0
+	for _, c := range cols {
+		total += c.Matches
+	}
+	a.render(w, r, 200, "roadmap", pageData{"Cols": cols, "Q": q, "Limit": limit, "Miss": miss,
+		"Older": max(0, len(done)-limit), "Total": total})
 }
 
 // handleRoadmapItem is the public detail page of a roadmap card. It exists

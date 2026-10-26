@@ -7,7 +7,7 @@ A minimal, self-hosted, white-label feedback portal with a kanban board. Let use
 - **On any website:** prefilled links or an embeddable widget (one `<script>` tag) that sends the page URL along.
 - **Board:** Inbox → In review → Planned → Done / Declined, with drag & drop on the board and on each card’s page.
 - **Two-way conversation:** your replies show up on the submitter's status page, and they can add details there.
-- **Public roadmap** (optional): titles by default, plus an optional public detail page per card. Screenshots and videos appear there only if the submitter allowed it (and they can take it back on their status page).
+- **Public roadmap** (optional): titles by default, plus an optional public detail page per card, and a search that also finds older shipped items. Screenshots and videos appear there only if the submitter allowed it (and they can take it back on their status page).
 - **Optional "In development" stage** between Planned and Done.
 - **Clear visibility on the board**: cards shown publicly get a green edge and a *Public* chip; filter by visibility.
 - **Private boards** next to the public one, for internal work that never leaves the admin area.
@@ -15,8 +15,8 @@ A minimal, self-hosted, white-label feedback portal with a kanban board. Let use
 - **Notifications** via ntfy, webhook (Slack/Mattermost/n8n compatible) or email.
 - **Multiple admins** with display names, shown next to replies and notes.
 - **Spam protection without third parties:** invisible proof-of-work check (ALTCHA-compatible), honeypot, rate limit.
-- **GDPR-friendly:** no IP addresses stored, no cookies for visitors, everything self-hosted (fonts included), metadata stripped from images, automatic deletion of closed feedback, self-service deletion via the status link, imprint and privacy policy pages with a template.
-- **White-label:** your own logo, wordmark and colors in a few clicks. Light and dark mode follow the system.
+- **GDPR-friendly:** no IP addresses stored, no cookies for visitors (a chosen light/dark theme stays in the browser's local storage), everything self-hosted (fonts included), metadata stripped from images, automatic deletion of closed feedback, self-service deletion via the status link, imprint and privacy policy pages with a template.
+- **White-label:** your own logo, wordmark and colors in a few clicks. Light and dark mode follow the system, or pick one with the toggle in the header.
 - **One binary, zero dependencies:** Go standard library only. Data is a JSON file plus an uploads folder.
 
 > [!WARNING]
@@ -96,7 +96,7 @@ Public forms are protected in three layers, none of which involves a third party
 ## Data protection (GDPR)
 
 - No IP addresses are written anywhere; the rate-limit key lives in memory for at most an hour.
-- No cookies for visitors. Admins get one session cookie (technically necessary).
+- No cookies for visitors. Admins get one session cookie (technically necessary). The light/dark toggle keeps its choice in the browser's local storage, only after someone uses it, and never sends it to the server.
 - Fonts, scripts, icons: all served from your server. Nothing is loaded from CDNs or font services. Optionally use the OS font instead.
 - EXIF/XMP/IPTC is stripped from JPEG, PNG and WebP.
 - **Retention:** closed cards (Done/Declined) can be deleted automatically after N days, attachments included.

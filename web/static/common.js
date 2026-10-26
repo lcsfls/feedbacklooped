@@ -95,3 +95,42 @@ document.getElementById('sentfrom-remove')?.addEventListener('click', () => {
 document.querySelectorAll('input[data-autosubmit]').forEach((el) => {
   el.addEventListener('change', () => el.form && el.form.requestSubmit());
 });
+
+// Theme toggle (system / light / dark). Stored in this browser only.
+(() => {
+  const root = document.documentElement;
+  const meta = [...document.querySelectorAll('meta[name=theme-color]')];
+  const current = () => root.dataset.theme || 'system';
+  const isDark = (t) => t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+  function sync() {
+    const t = current();
+    const label = 'Theme: ' + t + ' (click to change)';
+    document.querySelectorAll('[data-theme-toggle]').forEach((b) => { b.setAttribute('aria-label', label); b.title = label; });
+    // Browser UI colour follows the chosen theme, not just the system.
+    meta.forEach((m) => { m.removeAttribute('media'); m.content = isDark(t) ? '#0a0a0a' : '#fafafa'; });
+  }
+  function apply(t) {
+    if (t === 'system') delete root.dataset.theme; else root.dataset.theme = t;
+    try { if (t === 'system') localStorage.removeItem('fl-theme'); else localStorage.setItem('fl-theme', t); } catch (e) {}
+    sync();
+  }
+  document.querySelectorAll('[data-theme-toggle]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      // First click always flips what you see: system → opposite → same as system → system.
+      const sysDark = matchMedia('(prefers-color-scheme: dark)').matches;
+      const flip = sysDark ? 'light' : 'dark', same = sysDark ? 'dark' : 'light';
+      const cur = current();
+      const next = cur === 'system' ? flip : cur === flip ? same : 'system';
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (document.startViewTransition && !reduce && isDark(next) !== isDark(current())) {
+        document.startViewTransition(() => apply(next));
+      } else {
+        apply(next);
+      }
+    });
+  });
+  if (meta.length && root.dataset.theme) sync();
+  else document.querySelectorAll('[data-theme-toggle]').forEach((b) => { const l = 'Theme: ' + current() + ' (click to change)'; b.setAttribute('aria-label', l); b.title = l; });
+  // Other tabs: keep in step.
+  addEventListener('storage', (e) => { if (e.key === 'fl-theme') { const t = e.newValue || 'system'; if (t === 'system') delete root.dataset.theme; else root.dataset.theme = t; sync(); } });
+})();

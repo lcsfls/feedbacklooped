@@ -60,8 +60,9 @@
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   color-scheme: light;
 }
+/* Dark: follows the system unless the visitor picked a theme (html[data-theme], set by theme.js). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme=light]) {
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);
@@ -86,6 +87,31 @@
     --mark-beam: oklch(0.556 0 0);
     color-scheme: dark;
   }
+}
+:root[data-theme=dark] {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --destructive-text: oklch(0.704 0.191 22.216);
+    --success-text: oklch(0.792 0.209 151.711);
+    --warning-text: oklch(0.828 0.189 84.429);
+    --info: oklch(0.707 0.165 254.624);
+    --info-text: oklch(0.707 0.165 254.624);
+    --dev: oklch(0.714 0.16 300);
+    --dev-text: oklch(0.78 0.13 300);
+    --mark-hold: oklch(0.985 0 0);
+    --mark-beam: oklch(0.556 0 0);
+    color-scheme: dark;
 }
 
 * { box-sizing: border-box; border-color: var(--border); }
@@ -160,8 +186,9 @@ input[type=text], input[type=url], input[type=password], input[type=number], inp
   transition: border-color .15s, box-shadow .15s;
 }
 @media (prefers-color-scheme: dark) {
-  input[type=text], input[type=url], input[type=password], input[type=number], input[type=search], input[type=email], select, textarea { background: color-mix(in srgb, var(--input) 30%, transparent); }
+  :root:not([data-theme=light]) input[type=text], :root:not([data-theme=light]) input[type=url], :root:not([data-theme=light]) input[type=password], :root:not([data-theme=light]) input[type=number], :root:not([data-theme=light]) input[type=search], :root:not([data-theme=light]) input[type=email], :root:not([data-theme=light]) select, :root:not([data-theme=light]) textarea { background: color-mix(in srgb, var(--input) 30%, transparent); }
 }
+:root[data-theme=dark] input[type=text], :root[data-theme=dark] input[type=url], :root[data-theme=dark] input[type=password], :root[data-theme=dark] input[type=number], :root[data-theme=dark] input[type=search], :root[data-theme=dark] input[type=email], :root[data-theme=dark] select, :root[data-theme=dark] textarea { background: color-mix(in srgb, var(--input) 30%, transparent); }
 select { padding-right: 8px; }
 select option { background: var(--card); }
 textarea { resize: vertical; padding: 8px 12px; }
@@ -653,3 +680,25 @@ html:has(body.embed) { scrollbar-gutter: auto; }
 .rm-status-planned { background: color-mix(in srgb, var(--info) 14%, transparent); color: var(--info-text); }
 .rm-status-development { background: color-mix(in srgb, var(--dev) 14%, transparent); color: var(--dev-text); }
 .rm-status-done { background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success-text); }
+
+/* Theme toggle (only shown when JavaScript runs; theme.js adds .js-theme) */
+.theme-toggle { display: none; align-items: center; justify-content: center; width: 34px; height: 34px; margin-left: 4px; padding: 0; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--muted-foreground); cursor: pointer; transition: color .15s, background .15s, transform .3s var(--ease-spring); }
+.js-theme .theme-toggle { display: inline-flex; }
+.theme-toggle:hover { color: var(--foreground); background: var(--accent); }
+.theme-toggle:active { transform: scale(.9) rotate(-20deg); }
+.theme-toggle svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; display: none; }
+.theme-toggle .t-auto { fill: none; }
+.theme-toggle .t-auto .half { fill: currentColor; stroke: none; }
+:root:not([data-theme]) .theme-toggle .t-auto, :root[data-theme=light] .theme-toggle .t-light, :root[data-theme=dark] .theme-toggle .t-dark { display: block; animation: theme-icon .35s var(--ease-spring); }
+@keyframes theme-icon { from { opacity: 0; transform: rotate(-60deg) scale(.6); } }
+.embed-top .theme-toggle { margin-left: auto; margin-right: 6px; }
+@media (prefers-reduced-motion: reduce) { .theme-toggle svg { animation: none !important; } }
+
+/* Roadmap search */
+.rm-search { position: relative; max-width: 520px; margin: 0 0 20px; }
+.rm-search svg { position: absolute; left: 12px; top: 50%; width: 17px; height: 17px; margin-top: -8.5px; fill: none; stroke: var(--muted-foreground); stroke-width: 1.8; stroke-linecap: round; pointer-events: none; }
+.rm-search input { min-height: 42px; padding-left: 38px; border-radius: 999px; font-size: .95rem; }
+.rm-empty { margin: -8px 0 16px; }
+.rm-empty a { color: inherit; }
+.rm-item[hidden], .rm-none[hidden], .rm-older[hidden] { display: none; }
+.rm-older { margin-top: 10px; width: 100%; }

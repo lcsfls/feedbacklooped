@@ -5,20 +5,27 @@
   <h1>Roadmap</h1>
   {{if .S.RoadmapIntro}}<p class="lead">{{.S.RoadmapIntro}}</p>{{end}}
 </section>
-<section class="roadmap">
-  {{range .Cols}}
+<form class="rm-search" role="search" method="get" action="/roadmap" id="rm-search">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+  <input type="search" name="q" id="rm-q" value="{{.Q}}" placeholder="Search the roadmap, including everything that shipped" aria-label="Search the roadmap" maxlength="100" autocomplete="off">
+</form>
+<p class="muted rm-empty" id="rm-empty"{{if or (not .Q) .Total}} hidden{{end}}>Nothing matches “<span id="rm-empty-q">{{.Q}}</span>”. <a href="/">Suggest it</a>?</p>
+<section class="roadmap" id="roadmap">
+  {{range $col := .Cols}}
   <div class="rm-col rm-{{.Key}}">
-    <h2>{{.Label}} <span class="count">{{len .Tickets}}</span></h2>
+    <h2>{{.Label}} <span class="count">{{.Matches}}</span></h2>
     {{if .Tickets}}
     <ul>
-      {{range .Tickets}}
-      <li class="rm-item">
+      {{range $i, $t := .Tickets}}{{with $t}}
+      <li class="rm-item" data-search="{{.PublicSearchText}}"{{if and (eq $col.Key "done") (ge $i $.Limit)}} data-older{{end}}{{if or (index $.Miss .ID) (and (eq $col.Key "done") (ge $i $.Limit))}} hidden{{end}}>
         <span class="chip">{{.Category}}</span>
         <p>{{if .PublicDetails}}<a class="rm-link" href="/roadmap/{{.ID}}">{{.PublicTitle}}</a>{{else}}{{.PublicTitle}}{{end}}</p>
         <span class="muted small">{{if eq .Status "done"}}shipped {{end}}{{ago .UpdatedAt}}</span>
       </li>
-      {{end}}
+      {{end}}{{end}}
     </ul>
+    {{if and (eq .Key "done") $.Older}}<a class="btn ghost rm-older" id="rm-older" href="/roadmap?all=1">Show {{$.Older}} older</a>{{end}}
+    {{if and $.Q (not .Matches)}}<p class="muted small rm-none">No matches here.</p>{{end}}
     {{else}}
     <p class="muted small">Nothing right now.</p>
     {{end}}
@@ -27,3 +34,4 @@
 </section>
 <p class="center"><a class="btn primary" href="/">Give your own feedback</a></p>
 {{end}}
+{{define "scripts"}}<script src="/static/roadmap.js?v={{.Version}}"></script>{{end}}

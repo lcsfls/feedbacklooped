@@ -158,6 +158,15 @@ func (t *Ticket) PublicText() string {
 	return t.Body
 }
 
+// PublicSearchText is what the roadmap search looks at: only public text.
+func (t *Ticket) PublicSearchText() string {
+	s := t.PublicTitle() + " " + t.Category
+	if t.PublicDetails {
+		s += " " + t.PublicText()
+	}
+	return strings.ToLower(s)
+}
+
 // SharableMedia: screenshots and videos from the original submission (never
 // from the conversation). Whether they may be shown is decided by ShareMedia.
 func (t *Ticket) SharableMedia() []Attachment {
