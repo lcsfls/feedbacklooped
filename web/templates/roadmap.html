@@ -1,18 +1,24 @@
 {{define "title"}}Roadmap · {{.S.Title}}{{end}}
-{{define "bodyclass"}}wide{{end}}
+{{define "bodyclass"}}wide roadmap-page{{end}}
 {{define "content"}}
 <section class="page-head">
   <h1>Roadmap</h1>
   {{if .S.RoadmapIntro}}<p class="lead">{{.S.RoadmapIntro}}</p>{{end}}
 </section>
-<form class="rm-search" role="search" method="get" action="/roadmap" id="rm-search">
-  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
-  <input type="search" name="q" id="rm-q" value="{{.Q}}" placeholder="Search the roadmap, including everything that shipped" aria-label="Search the roadmap" maxlength="100" autocomplete="off">
-</form>
+<div class="rm-bar">
+  <form class="rm-search" role="search" method="get" action="/roadmap" id="rm-search">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+    <input type="search" name="q" id="rm-q" value="{{.Q}}" placeholder="Search the roadmap …" title="Also finds everything that shipped earlier" aria-label="Search the roadmap, including everything that shipped" maxlength="100" autocomplete="off">
+  </form>
+  <a class="btn primary rm-cta" href="/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="long">Give your own feedback</span><span class="short">Feedback</span></a>
+</div>
 <p class="muted rm-empty" id="rm-empty"{{if or (not .Q) .Total}} hidden{{end}}>Nothing matches “<span id="rm-empty-q">{{.Q}}</span>”. <a href="/">Suggest it</a>?</p>
+<nav class="rm-tabs" id="rm-tabs" aria-label="Roadmap columns">
+  {{range .Cols}}<a href="#col-{{.Key}}" class="rm-tab rm-tab-{{.Key}}" data-col="{{.Key}}">{{.Label}} <span class="count">{{.Matches}}</span></a>{{end}}
+</nav>
 <section class="roadmap" id="roadmap">
   {{range $col := .Cols}}
-  <div class="rm-col rm-{{.Key}}">
+  <div class="rm-col rm-{{.Key}}" id="col-{{.Key}}" data-col="{{.Key}}">
     <h2>{{.Label}} <span class="count">{{.Matches}}</span></h2>
     {{if .Tickets}}
     <ul>
@@ -32,6 +38,5 @@
   </div>
   {{end}}
 </section>
-<p class="center"><a class="btn primary" href="/">Give your own feedback</a></p>
 {{end}}
 {{define "scripts"}}<script src="/static/roadmap.js?v={{.Version}}"></script>{{end}}
