@@ -59,6 +59,11 @@
         <div class="field"><label for="mb">Max. MB per file</label><input id="mb" name="max_file_mb" type="number" min="1" max="2048" value="{{.S.MaxFileMB}}"></div>
         <div class="field"><label for="rs">Max. recording (s)</label><input id="rs" name="max_record_sec" type="number" min="10" max="1800" value="{{.S.MaxRecordSec}}"></div>
       </div>
+      <div class="field">
+        <label for="ms">Total storage for uploads <span class="opt">(MB, 0 = unlimited; currently {{size .StorageUsed}})</span></label>
+        <input id="ms" name="max_storage_mb" type="number" min="0" value="{{.S.MaxStorageMB}}" style="max-width:160px">
+        <p class="hint">When reached, new submissions still work but without attachments. Protects the server disk from filling up.</p>
+      </div>
       <p class="hint">Make sure your reverse proxy accepts uploads of this size (e.g. <code>client_max_body_size</code> in nginx).</p>
     </div>
 

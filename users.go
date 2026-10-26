@@ -11,14 +11,15 @@ import (
 
 // User is an admin account. All admins have the same rights.
 type User struct {
-	ID          int       `json:"id"`
-	Username    string    `json:"username"`
-	DisplayName string    `json:"display_name"`
-	PassHash    string    `json:"pass_hash"`
-	Email       string    `json:"email,omitempty"`        // optional, for notifications only
-	NotifyEmail bool      `json:"notify_email,omitempty"` // email me about new feedback and replies
-	CreatedAt   time.Time `json:"created_at"`
-	LastLoginAt time.Time `json:"last_login_at,omitempty"`
+	ID           int       `json:"id"`
+	Username     string    `json:"username"`
+	DisplayName  string    `json:"display_name"`
+	PassHash     string    `json:"pass_hash"`
+	Email        string    `json:"email,omitempty"`         // optional, for notifications only
+	NotifyEmail  bool      `json:"notify_email,omitempty"`  // email me about new feedback and replies
+	SessionEpoch int       `json:"session_epoch,omitempty"` // bump to end all sessions
+	CreatedAt    time.Time `json:"created_at"`
+	LastLoginAt  time.Time `json:"last_login_at,omitempty"`
 }
 
 // Name is what other people see, e.g. next to a reply.
@@ -248,3 +249,18 @@ func (a *App) handlePassword(w http.ResponseWriter, r *http.Request) {
 
 // dummyHash keeps login timing equal for unknown usernames.
 var dummyHash, _ = hashPassword("timing-equaliser")
+
+// handleLogoutAll ends every session of the current user, then logs in again here.
+func (a *App) handleLogoutAll(w http.ResponseWriter, r *http.Request) {
+	me := a.currentUser(r)
+	var updated User
+	a.store.Update(func(db *dbFile) error {
+		if u := findUser(db, me.ID); u != nil {
+			u.SessionEpoch++
+			updated = *u
+		}
+		return nil
+	})
+	a.setSession(w, r, &updated)
+	http.Redirect(w, r, "/admin/account?msg=loggedout", http.StatusSeeOther)
+}

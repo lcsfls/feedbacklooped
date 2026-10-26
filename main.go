@@ -41,7 +41,9 @@ type App struct {
 	tpl         map[string]*template.Template
 	submitLimit *limiter
 	loginLimit  *limiter
+	userLimit   *limiter // failed logins per username, against distributed brute force
 	usedPoW     *usedChallenges
+	setupCode   string // one-time code required to create the first admin
 }
 
 func env(key, def string) string {
@@ -79,6 +81,10 @@ func main() {
 		submitLimit: newLimiter(10, time.Hour),
 		loginLimit:  newLimiter(8, 15*time.Minute),
 		usedPoW:     newUsedChallenges(),
+		userLimit:   newLimiter(20, time.Hour),
+	}
+	if !store.HasUsers() && cfg.AdminPassword == "" {
+		app.setupCode = strings.ToUpper(randomToken(6))
 	}
 	if err := app.applyEnv(); err != nil {
 		log.Fatal(err)
@@ -96,8 +102,8 @@ func main() {
 	go func() {
 		log.Printf("feedbacklooped %s listening on %s (data: %s)", version, cfg.Listen, cfg.DataDir)
 		go app.retentionLoop()
-		if !store.HasUsers() {
-			log.Printf("No admin account yet: open /admin to set it up.")
+		if !store.HasUsers() && app.setupCode != "" {
+			log.Printf("No admin account yet. Open /admin and enter this setup code: %s", app.setupCode)
 		}
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatal(err)
@@ -247,6 +253,12 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, name st
 	me := a.currentUser(r)
 	data["Admin"] = me != nil
 	data["Me"] = me
+	if name == "setup" {
+		data["NeedCode"] = a.setupCode != ""
+	}
+	if name == "settings" && me != nil {
+		data["StorageUsed"] = a.uploadsSize()
+	}
 	data["Path"] = r.URL.Path
 	data["Version"] = version
 	if msg := r.URL.Query().Get("msg"); msg != "" {
@@ -269,6 +281,8 @@ func flashText(code string) string {
 		return "Deleted."
 	case "sent":
 		return "Message is now visible on the status page."
+	case "loggedout":
+		return "All other sessions have been logged out."
 	case "reply":
 		return "Thanks, your message has been received."
 	}
@@ -298,9 +312,12 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
-func securityHeaders(next http.Handler) http.Handler {
+func (a *App) securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
+		if a.isHTTPS(r) {
+			h.Set("Strict-Transport-Security", "max-age=31536000")
+		}
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("X-Frame-Options", "DENY")
@@ -366,13 +383,14 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /admin/users/{id}/delete", a.admin(a.handleUserDelete))
 	mux.HandleFunc("GET /admin/account", a.admin(a.handleAccount))
 	mux.HandleFunc("POST /admin/account", a.admin(a.handleAccountSave))
+	mux.HandleFunc("POST /admin/account/logout-all", a.admin(a.handleLogoutAll))
 	mux.HandleFunc("GET /admin/export", a.admin(a.handleExport))
 	mux.HandleFunc("POST /admin/branding/logo", a.admin(a.handleLogoUpload))
 	mux.HandleFunc("POST /admin/branding/logo/delete", a.admin(a.handleLogoDelete))
 	mux.HandleFunc("POST /admin/branding/reset", a.admin(a.handleBrandReset))
 
 	mux.HandleFunc("/", a.notFound)
-	return securityHeaders(mux)
+	return a.securityHeaders(mux)
 }
 
 func cacheStatic(h http.Handler) http.Handler {
@@ -393,7 +411,7 @@ func (a *App) admin(h http.HandlerFunc) http.HandlerFunc {
 			a.fail(w, r, http.StatusUnauthorized, "Please log in again.")
 			return
 		}
-		if r.Method != http.MethodGet && !sameOrigin(r) {
+		if r.Method != http.MethodGet && !a.sameOrigin(r) {
 			a.fail(w, r, http.StatusForbidden, "Request from another site rejected.")
 			return
 		}

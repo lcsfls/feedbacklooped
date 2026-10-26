@@ -19,7 +19,7 @@ import (
 const (
 	pbkdfIter     = 600_000
 	sessionCookie = "fl_admin"
-	sessionTTL    = 30 * 24 * time.Hour
+	sessionTTL    = 14 * 24 * time.Hour
 )
 
 func hashPassword(pw string) (string, error) {
@@ -68,12 +68,14 @@ func (a *App) verify(msg, sig string) bool {
 // the user's password hash makes a password change end that user's sessions;
 // deleting the user ends them as well.
 func (a *App) sessionValue(u *User, exp time.Time) string {
-	msg := strconv.Itoa(u.ID) + "." + strconv.FormatInt(exp.Unix(), 10) + "." + pwFingerprint(u.PassHash)
+	msg := strconv.Itoa(u.ID) + "." + strconv.FormatInt(exp.Unix(), 10) + "." + u.fingerprint()
 	return msg + "." + a.sign("session:"+msg)
 }
 
-func pwFingerprint(hash string) string {
-	h := sha256.Sum256([]byte(hash))
+// fingerprint changes when the password changes or the user logs out
+// everywhere, which invalidates all existing session cookies of that user.
+func (u *User) fingerprint() string {
+	h := sha256.Sum256([]byte(u.PassHash + "|" + strconv.Itoa(u.SessionEpoch)))
 	return base64.RawURLEncoding.EncodeToString(h[:8])
 }
 
@@ -110,7 +112,7 @@ func (a *App) currentUser(r *http.Request) *User {
 	}
 	id, _ := strconv.Atoi(parts[0])
 	u := a.store.User(id)
-	if u == nil || parts[2] != pwFingerprint(u.PassHash) {
+	if u == nil || parts[2] != u.fingerprint() {
 		return nil
 	}
 	return u
@@ -129,7 +131,7 @@ func (a *App) isHTTPS(r *http.Request) bool {
 }
 
 // sameOrigin protects all state-changing requests against CSRF.
-func sameOrigin(r *http.Request) bool {
+func (a *App) sameOrigin(r *http.Request) bool {
 	if site := r.Header.Get("Sec-Fetch-Site"); site != "" {
 		return site == "same-origin" || site == "none"
 	}
@@ -145,7 +147,7 @@ func sameOrigin(r *http.Request) bool {
 		return false
 	}
 	host := r.Host
-	if fh := r.Header.Get("X-Forwarded-Host"); fh != "" {
+	if fh := r.Header.Get("X-Forwarded-Host"); fh != "" && a.cfg.TrustProxy {
 		host = fh
 	}
 	return strings.EqualFold(u.Host, host)
@@ -193,6 +195,20 @@ func newLimiter(limit int, window time.Duration) *limiter {
 }
 
 func (l *limiter) Allow(key string) bool { return l.AllowN(key, l.limit) }
+
+// Check reports whether key is still below the limit, without counting a hit.
+func (l *limiter) Check(key string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	cut := time.Now().Add(-l.window)
+	n := 0
+	for _, t := range l.hits[key] {
+		if t.After(cut) {
+			n++
+		}
+	}
+	return n < l.limit
+}
 
 // AllowN applies a limit that may change at runtime (from the settings).
 func (l *limiter) AllowN(key string, limit int) bool {

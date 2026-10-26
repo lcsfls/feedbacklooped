@@ -53,6 +53,15 @@ func formFiles(r *http.Request) []*multipart.FileHeader {
 // saveUploads stores all files or none.
 func (a *App) saveUploads(files []*multipart.FileHeader, already int) ([]Attachment, error) {
 	st := a.store.Settings()
+	if len(files) > 0 && st.MaxStorageMB > 0 {
+		var incoming int64
+		for _, fh := range files {
+			incoming += fh.Size
+		}
+		if a.uploadsSize()+incoming > int64(st.MaxStorageMB)<<20 {
+			return nil, errors.New("Uploads are temporarily not possible because the storage limit is reached. Please send your feedback without attachments.")
+		}
+	}
 	if already+len(files) > st.MaxFiles*3 || len(files) > st.MaxFiles {
 		return nil, fmt.Errorf("Too many files (max. %d per message)", st.MaxFiles)
 	}
@@ -98,7 +107,7 @@ func (a *App) baseURL(r *http.Request) string {
 }
 
 func (a *App) handleSubmit(w http.ResponseWriter, r *http.Request) {
-	if !sameOrigin(r) {
+	if !a.sameOrigin(r) {
 		a.fail(w, r, 403, "Request from another site rejected.")
 		return
 	}
@@ -120,7 +129,7 @@ func (a *App) handleSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	st := a.store.Settings()
-	title := cleanText(r.FormValue("title"), 200)
+	title := oneLine(cleanText(r.FormValue("title"), 200))
 	body := cleanText(r.FormValue("body"), 20000)
 	category := r.FormValue("category")
 	contact := cleanText(r.FormValue("contact"), 200)
@@ -181,7 +190,7 @@ func (a *App) handleStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleSubmitterReply(w http.ResponseWriter, r *http.Request) {
-	if !sameOrigin(r) {
+	if !a.sameOrigin(r) {
 		a.fail(w, r, 403, "Request from another site rejected.")
 		return
 	}
@@ -317,4 +326,23 @@ func (a *App) handleMedia(w http.ResponseWriter, r *http.Request) {
 	}
 	h.Set("Content-Disposition", disp+"; filename*=UTF-8''"+url.PathEscape(att.Name))
 	http.ServeContent(w, r, "", att.CreatedAt, f)
+}
+
+// oneLine collapses line breaks and control characters into spaces.
+func oneLine(s string) string {
+	return strings.Join(strings.FieldsFunc(s, func(r rune) bool { return r == '\n' || r == '\r' || r == '\t' || r < 32 }), " ")
+}
+
+// uploadsSize sums the stored attachments (fast enough for a feedback board;
+// the store holds every attachment's size).
+func (a *App) uploadsSize() int64 {
+	var n int64
+	a.store.View(func(db *dbFile) {
+		for _, t := range db.Tickets {
+			for _, at := range t.Attachments {
+				n += at.Size
+			}
+		}
+	})
+	return n
 }

@@ -6,6 +6,13 @@
     <p>Create the first admin account. Do this right after the first start: until an account exists, anyone can open this page.</p>
     {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
     <form method="post" action="/admin/setup">
+      {{if .NeedCode}}
+      <div class="field">
+        <label for="sc">Setup code</label>
+        <input id="sc" name="setup_code" type="text" required autocomplete="off" spellcheck="false" class="mono-input" placeholder="from the server log">
+        <p class="hint">Shown in the server log on start, e.g. <code>docker logs feedbacklooped</code>. It makes sure only whoever runs the server can create the first admin.</p>
+      </div>
+      {{end}}
       <div class="field">
         <label for="title">Name of the feedback portal</label>
         <input id="title" name="title" type="text" value="{{.S.Title}}" maxlength="80">

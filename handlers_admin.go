@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -46,12 +47,17 @@ func (a *App) handleAdminHome(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleSetup(w http.ResponseWriter, r *http.Request) {
-	if !sameOrigin(r) {
+	if !a.sameOrigin(r) {
 		a.fail(w, r, 403, "Request from another site rejected.")
 		return
 	}
 	again := func(msg string) {
 		a.render(w, r, 400, "setup", pageData{"Error": msg, "NewUsername": r.FormValue("username"), "NewDisplay": r.FormValue("display_name")})
+	}
+	if a.setupCode != "" && subtle.ConstantTimeCompare([]byte(strings.ToUpper(strings.TrimSpace(r.FormValue("setup_code")))), []byte(a.setupCode)) != 1 {
+		time.Sleep(700 * time.Millisecond)
+		again("Wrong setup code. You find it in the server log (docker logs feedbacklooped).")
+		return
 	}
 	if err := validPassword(r.FormValue("password"), r.FormValue("password2")); err != nil {
 		again(err.Error())
@@ -88,6 +94,7 @@ func (a *App) handleSetup(w http.ResponseWriter, r *http.Request) {
 		again(err.Error())
 		return
 	}
+	a.setupCode = "" // only needed once
 	a.setSession(w, r, u)
 	http.Redirect(w, r, "/admin/settings?msg=saved", http.StatusSeeOther)
 }
@@ -95,7 +102,7 @@ func (a *App) handleSetup(w http.ResponseWriter, r *http.Request) {
 func utf8Len(s string) int { return len([]rune(s)) }
 
 func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
-	if !sameOrigin(r) {
+	if !a.sameOrigin(r) {
 		a.fail(w, r, 403, "Request from another site rejected.")
 		return
 	}
@@ -103,8 +110,14 @@ func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
 		a.render(w, r, 429, "login", pageData{"Error": "Too many attempts. Please try again in 15 minutes."})
 		return
 	}
-	u := a.store.UserByName(r.FormValue("username"))
+	uname := normalizeUsername(r.FormValue("username"))
+	if !a.userLimit.Check(uname) {
+		a.render(w, r, 429, "login", pageData{"Error": "Too many failed attempts for this account. Please try again later.", "NewUsername": uname})
+		return
+	}
+	u := a.store.UserByName(uname)
 	if u == nil || !checkPassword(u.PassHash, r.FormValue("password")) {
+		a.userLimit.Allow(uname) // count the failure
 		if u == nil {
 			checkPassword(dummyHash, r.FormValue("password")) // same timing for unknown users
 		}
@@ -128,7 +141,7 @@ func (a *App) handleLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleNewCard(w http.ResponseWriter, r *http.Request) {
-	title := cleanText(r.FormValue("title"), 200)
+	title := oneLine(cleanText(r.FormValue("title"), 200))
 	if title == "" {
 		http.Redirect(w, r, "/admin", http.StatusSeeOther)
 		return
@@ -213,7 +226,7 @@ func (a *App) handleTicketUpdate(w http.ResponseWriter, r *http.Request) {
 		if t == nil {
 			return errNotFound
 		}
-		if v := cleanText(r.FormValue("title"), 200); v != "" {
+		if v := oneLine(cleanText(r.FormValue("title"), 200)); v != "" {
 			t.Title = v
 		}
 		if t.Internal {
@@ -430,6 +443,7 @@ func (a *App) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		s.CaptchaDifficulty = formInt(r, "captcha_difficulty", s.CaptchaDifficulty, 1000, 1000000)
 		s.RateLimitPerHour = formInt(r, "rate_limit_per_hour", s.RateLimitPerHour, 1, 1000)
 		s.RetentionDays = formInt(r, "retention_days", s.RetentionDays, 0, 3650)
+		s.MaxStorageMB = formInt(r, "max_storage_mb", s.MaxStorageMB, 0, 10000000)
 		s.AllowSelfDelete = r.FormValue("allow_self_delete") == "1"
 		s.SystemFont = r.FormValue("system_font") == "1"
 		s.ImprintURL = cleanURL(r.FormValue("imprint_url"))
@@ -458,8 +472,8 @@ func (a *App) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		if r.FormValue("smtp_pass_clear") == "1" {
 			s.SMTPPass = ""
 		}
-		s.SMTPFrom = strings.TrimSpace(r.FormValue("smtp_from"))
-		s.SMTPTo = strings.TrimSpace(r.FormValue("smtp_to"))
+		s.SMTPFrom = oneLine(strings.TrimSpace(r.FormValue("smtp_from")))
+		s.SMTPTo = oneLine(strings.TrimSpace(r.FormValue("smtp_to")))
 		return nil
 	})
 	http.Redirect(w, r, "/admin/settings?msg=saved", http.StatusSeeOther)

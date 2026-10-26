@@ -169,6 +169,7 @@ type Settings struct {
 	CaptchaDifficulty int  `json:"captcha_difficulty"` // max. number to search; higher = slower
 	RateLimitPerHour  int  `json:"rate_limit_per_hour"`
 	RetentionDays     int  `json:"retention_days"`    // delete Done/Declined cards after N days, 0 = never
+	MaxStorageMB      int  `json:"max_storage_mb"`    // total size of all uploads; new uploads are refused above it
 	AllowSelfDelete   bool `json:"allow_self_delete"` // submitters may delete their feedback via the status link
 	SystemFont        bool `json:"system_font"`       // use the OS font instead of the bundled one
 
@@ -197,6 +198,7 @@ func defaultSettings() Settings {
 		CaptchaEnabled:    true,
 		CaptchaDifficulty: 50000,
 		RateLimitPerHour:  10,
+		MaxStorageMB:      5120,
 		AllowSelfDelete:   true,
 	}
 }

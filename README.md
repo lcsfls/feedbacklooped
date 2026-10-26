@@ -14,13 +14,16 @@ A minimal, self-hosted, white-label feedback portal with a kanban board. Let use
 - **White-label:** your own logo, wordmark and colors in a few clicks. Light and dark mode follow the system.
 - **One binary, zero dependencies:** Go standard library only. Data is a JSON file plus an uploads folder.
 
+> [!WARNING]
+> **100 % vibe-coded.** Every line of this project – code, templates, styles, docs – was written by [Claude](https://claude.ai) (Anthropic’s AI model) in a chat with its maintainer, who described what they wanted and tested the result. It has been tested end to end and reviewed for common security issues, but **it has not been audited by an independent human security expert.** Read the [security notes](#security) before you put it on the internet, and treat it like any young, small project: run it behind a reverse proxy, keep it updated, keep backups.
+
 ## Run with Docker
 
 ```bash
 docker compose up -d --build
 ```
 
-Then open `https://feedback.your-domain.com/admin` and create the first admin account. **Do this right after the first start:** until an account exists, anyone can open the setup page. Alternatively, preset it with `FL_ADMIN_USER` and `FL_ADMIN_PASSWORD`.
+Then open `https://feedback.your-domain.com/admin` and create the first admin account. You need the **setup code** that is printed in the log on the first start (`docker logs feedbacklooped`), so nobody else can claim your instance. Alternatively, preset the account with `FL_ADMIN_USER` and `FL_ADMIN_PASSWORD`; then no setup page is shown.
 
 Everything else (name, branding, categories, limits, spam protection, data retention, imprint and privacy policy, roadmap, notifications) is configured in the browser under **Settings**; further admins are added under **Users**.
 
@@ -107,11 +110,40 @@ With Nginx Proxy Manager, put `client_max_body_size 600m;` under *Advanced*.
 
 ## Security
 
-- Passwords hashed with PBKDF2-SHA256 (600,000 iterations), constant-time login for unknown usernames.
-- HMAC-signed session cookie, `HttpOnly`, `SameSite=Strict`, CSRF protection via Origin/`Sec-Fetch-Site`.
-- Login rate limit per sender; proof-of-work, honeypot, minimum fill time and a configurable submission limit on public forms.
-- Uploads are detected by content, not extension. Allowed: PNG, JPEG, GIF, WebP, MP4, MOV, WebM and TXT/LOG. They are served with `nosniff` and a sandbox CSP.
-- Strict Content Security Policy without inline scripts. The container runs as non-root (distroless).
+### What is in place
+
+- **Setup:** the first admin can only be created with a one-time code from the server log (or via environment variables).
+- **Passwords:** PBKDF2-SHA256 with 600,000 iterations and a random salt; login takes the same time for unknown usernames.
+- **Brute force:** failed logins are limited per sender (8 per 15 min) and per username (20 per hour, independent of the IP).
+- **Sessions:** HMAC-signed cookie, `HttpOnly`, `Secure` on HTTPS, `SameSite=Strict`, 14 days. Changing the password, deleting the user or *Log out everywhere else* ends all other sessions.
+- **CSRF:** every state-changing request must be same-origin (`Sec-Fetch-Site`, else `Origin`/`Referer`).
+- **XSS:** all output is escaped by Go’s `html/template`; strict Content Security Policy without inline scripts, no external sources; `X-Frame-Options: DENY`; HSTS on HTTPS.
+- **Uploads:** type detected from the content, not the extension (PNG, JPEG, GIF, WebP, MP4, MOV, WebM, TXT/LOG); stored under random names; served with the detected type, `nosniff`, `Content-Disposition` and a sandboxing CSP; size limit per file, per request and in total.
+- **Access:** attachments and status pages need the admin session or the 192-bit status token (stored only as a SHA-256 hash).
+- **Spam:** proof of work, honeypot, minimum fill time, rate limit (see above).
+- **Proxy headers** (`X-Forwarded-*`) are only trusted with `FL_TRUST_PROXY=true`.
+- **Supply chain:** no third-party Go modules; distroless, non-root container.
+
+### Known limitations
+
+- Rate limits live in memory; a restart resets them.
+- All admins have the same rights; there are no roles and no two-factor authentication yet.
+- With `FL_TRUST_PROXY=true`, the app must only be reachable through your proxy (bind to `127.0.0.1` or the Docker bridge, never `0.0.0.0`), otherwise clients can forge their IP and host.
+- `style-src` allows inline styles (needed for the white-label colors); scripts are not affected.
+- Videos are stored as uploaded; metadata is not stripped from them.
+- Data is stored unencrypted on disk; use disk encryption if you need encryption at rest.
+
+### Operating it safely
+
+1. Put it behind a reverse proxy with HTTPS (Caddy does this automatically).
+2. Publish the port only locally (`FL_BIND`, default `127.0.0.1:8080`).
+3. Rebuild regularly to pick up Go and base-image security fixes: `git pull && docker compose up -d --build`.
+4. Back up the data volume.
+5. Use strong, unique admin passwords.
+
+### Reporting a vulnerability
+
+Please don’t open a public issue. Use GitHub’s private vulnerability reporting instead – see [SECURITY.md](SECURITY.md).
 
 ## Backup
 

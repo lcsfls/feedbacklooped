@@ -167,7 +167,7 @@ func (a *App) applyRetention() {
 
 // handleSelfDelete lets a submitter delete their own feedback (right to erasure).
 func (a *App) handleSelfDelete(w http.ResponseWriter, r *http.Request) {
-	if !sameOrigin(r) || !a.store.Settings().AllowSelfDelete {
+	if !a.sameOrigin(r) || !a.store.Settings().AllowSelfDelete {
 		a.notFound(w, r)
 		return
 	}

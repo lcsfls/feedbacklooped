@@ -35,5 +35,10 @@
       <div class="actions"><button class="btn">Change password</button></div>
     </form>
   </div>
+  <div class="card">
+    <h2>Sessions</h2>
+    <p class="hint" style="margin-top:0">Lost a device or logged in on a shared computer? This ends all your other sessions. You stay logged in here. Sessions expire after 14 days anyway.</p>
+    <form method="post" action="/admin/account/logout-all" class="confirm" data-confirm="Log out all your other sessions?" style="margin-top:12px"><button class="btn">Log out everywhere else</button></form>
+  </div>
 </section>
 {{end}}
