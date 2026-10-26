@@ -765,3 +765,75 @@ body.board-page main { max-width: none; }
 @media (min-width: 641px) and (max-width: 760px) {
   .board { margin-left: -24px; margin-right: -24px; padding-left: 24px; padding-right: 24px; scroll-padding: 0 24px; }
 }
+
+/* ---------- Roadmap items: detail (page + modal) and public discussion ---------- */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.rm-item { position: relative; transition: border-color .15s, box-shadow .15s, transform .2s var(--ease-spring); }
+.rm-item:hover { border-color: var(--input); box-shadow: var(--shadow-sm); }
+.rm-item:active { transform: scale(.99); }
+.rm-item .rm-link { text-decoration: none; }
+.rm-item .rm-link::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.rm-item .rm-link:focus-visible { box-shadow: none; }
+.rm-item:has(.rm-link:focus-visible) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent); }
+.rm-foot { display: flex; gap: 12px; align-items: center; }
+.rm-comments { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
+.rm-comments svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+
+.rm-detail { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr); gap: 0; background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) + 6px); overflow: hidden; max-width: 1180px; margin: 0 auto; }
+.rm-detail-main { padding: 28px 32px; min-width: 0; }
+.rm-detail-main h1 { margin: 10px 0 14px; font-size: 1.6rem; line-height: 1.25; }
+.rm-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0; }
+.rm-own { margin: 24px 0 0; }
+.rm-own a { color: inherit; }
+.rm-detail-side { padding: 24px 24px 20px; border-left: 1px solid var(--border); background: color-mix(in srgb, var(--muted) 55%, var(--card)); display: flex; flex-direction: column; min-width: 0; }
+.rm-detail-side h2 { margin: 0 0 12px; font-size: 1rem; display: flex; gap: 8px; align-items: center; }
+.rm-detail-side h2 .count { font-family: var(--font-mono); font-size: .75rem; background: var(--muted); padding: 0 8px; border-radius: 999px; color: var(--muted-foreground); }
+.public-thread { margin-bottom: 14px; }
+.public-thread .msg { padding: 10px 12px; }
+.public-thread .msg .prose { font-size: .9rem; }
+.msg.visitor { background: var(--card); }
+.msg.just-posted { animation: just-posted 1.6s var(--ease-out); }
+@keyframes just-posted { from { box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 45%, transparent); } }
+.rm-nocomments { margin: 0 0 14px; }
+.comment-form { display: grid; gap: 8px; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); }
+.comment-form textarea { min-height: 76px; }
+.comment-row { display: flex; gap: 8px; }
+.comment-row input { flex: 1; min-width: 0; }
+.comment-form .hint { margin: 0; }
+.comment-form .error { margin: 0; }
+.small-chip { font-size: .68rem; padding: 0 7px; line-height: 1.6; display: inline-flex; align-items: center; gap: 3px; }
+.small-chip .globe { width: 10px; height: 10px; }
+.msg-actions { margin-left: auto; display: inline-flex; gap: 12px; align-items: baseline; }
+.msg-head form { margin-left: 0; }
+
+/* The modal */
+html.modal-open { overflow: hidden; }
+.rm-modal { width: min(1120px, calc(100vw - 48px)); height: min(820px, calc(100dvh - 48px)); max-width: none; max-height: none; padding: 0; border: 1px solid var(--border); border-radius: 16px; background: var(--card); color: var(--foreground); box-shadow: 0 30px 80px rgb(0 0 0 / .32); overflow: hidden; }
+.rm-modal::backdrop { background: rgb(10 10 10 / .5); backdrop-filter: blur(3px); }
+.rm-modal[open] { animation: rm-modal-in .32s var(--ease-spring); }
+.rm-modal[open]::backdrop { animation: rm-fade .25s ease-out; }
+@keyframes rm-modal-in { from { opacity: 0; transform: translateY(14px) scale(.97); } }
+@keyframes rm-fade { from { opacity: 0; } }
+.rm-modal-body { height: 100%; }
+.rm-modal .rm-detail { height: 100%; max-width: none; border: 0; border-radius: 0; }
+.rm-modal .rm-detail-main { overflow-y: auto; padding: 36px 40px; }
+.rm-modal .rm-detail-side { overflow: hidden; padding-top: 56px; }
+.rm-modal .public-thread, .rm-modal .rm-nocomments { overflow-y: auto; min-height: 0; flex: 0 1 auto; overscroll-behavior: contain; }
+.rm-modal-close { position: absolute; top: 12px; right: 12px; z-index: 3; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--muted-foreground); cursor: pointer; transition: color .15s, background .15s, transform .25s var(--ease-spring); }
+.rm-modal-close:hover { color: var(--foreground); background: var(--accent); transform: rotate(90deg); }
+.rm-modal-close svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.rm-loading { padding: 40px; }
+@media (prefers-reduced-motion: reduce) { .rm-modal[open], .rm-modal[open]::backdrop, .msg.just-posted { animation: none; } }
+
+@media (max-width: 800px) {
+  .rm-detail { grid-template-columns: 1fr; }
+  .rm-detail-main { padding: 22px 20px; }
+  .rm-detail-side { border-left: 0; border-top: 1px solid var(--border); padding: 20px; }
+  .rm-modal { width: 100vw; height: 100dvh; border-radius: 0; border: 0; }
+  .rm-modal .rm-detail { display: block; overflow-y: auto; overscroll-behavior: contain; }
+  .rm-modal .rm-detail-main { overflow: visible; padding: 60px 20px 20px; }
+  .rm-modal .rm-detail-side { overflow: visible; padding-top: 20px; min-height: 50%; }
+  .rm-modal .public-thread { overflow: visible; }
+  .rm-modal-close { position: fixed; }
+  .comment-form textarea, .comment-row input { font-size: 16px; }
+}

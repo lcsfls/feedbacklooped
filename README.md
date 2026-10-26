@@ -8,7 +8,8 @@ A minimal, self-hosted, white-label feedback portal with a kanban board. Let use
 - **Screenshots & videos:** take a screenshot of a tab, window or screen and mark it up (pen, box, circle, arrow, hide sensitive parts), record the screen, drag & drop or paste with <kbd>Ctrl</kbd>+<kbd>V</kbd> – all in the browser.
 - **On any website:** prefilled links or an embeddable widget (one `<script>` tag) that sends the page URL along.
 - **Board:** Inbox → In review → Planned → Done / Declined, with drag & drop on the board and on each card’s page.
-- **Two-way conversation:** your replies show up on the submitter's status page, and they can add details there.
+- **Two-way conversation:** your replies show up on the submitter's status page, and they can add details there. Each message is private by default; the team, or the submitter for their own messages, can make it public.
+- **Public discussion on the roadmap:** visitors open roadmap items in a modal (details left, discussion right) and comment without an account, behind the same spam check as the form. Admins get notified and can hide or delete comments.
 - **Public roadmap** (optional): titles by default, plus an optional public detail page per card, and a search that also finds older shipped items. Screenshots and videos appear there only if the submitter allowed it (and they can take it back on their status page).
 - **Optional "In development" stage** between Planned and Done.
 - **Clear visibility on the board**: cards shown publicly get a green edge and a *Public* chip; filter by visibility.
@@ -35,8 +36,10 @@ All screenshots use made-up demo data for a fictional product.
 | ![Feedback widget opened on a website](docs/screenshots/widget.png) | ![Card page with status track, attachment, public roadmap settings and conversation](docs/screenshots/card.png) |
 | **Private status page for the submitter** | **Public roadmap with search** |
 | ![Status page showing progress steps and the conversation with the team](docs/screenshots/status.png) | ![Public roadmap with search and four columns](docs/screenshots/roadmap.png) |
-| **Dark mode** | **On phones** |
-| ![The admin board in dark mode](docs/screenshots/board-dark.png) | ![Form, roadmap and a public roadmap item on a phone](docs/screenshots/mobile.png) |
+| **Roadmap item with public discussion** | **Admin board in dark mode** |
+| ![Roadmap item opened in a modal: description and screenshot on the left, public discussion with a comment form on the right](docs/screenshots/roadmap-item.png) | ![The admin board in dark mode](docs/screenshots/board-dark.png) |
+| **On phones** | |
+| ![Form, roadmap and a roadmap item with its discussion on a phone](docs/screenshots/mobile.png) | |
 
 ## Run with Docker
 
@@ -97,7 +100,7 @@ The **public board** receives every submission from the feedback form and is the
 
 Every page carries Open Graph and Twitter card tags, so links shared in Slack, Teams, LinkedIn, WhatsApp or X get a proper preview. Upload your own preview image (PNG/JPEG, 1200 × 630) under **Settings → Link preview image**; a neutral default is used otherwise.
 
-Roadmap detail pages (`/roadmap/{id}`) exist only for cards where an admin switched on **Public detail page**. They show the public title and the description, or a cleaned-up public description written by the team. The conversation, contact details and anything sent later in the conversation are never public; screenshots and videos from the original submission are shown only with the submitter's consent, given on the form or later on their status page. Detail pages are always `noindex`.
+Every card on the roadmap has an item page (`/roadmap/{id}`), which the roadmap opens as a modal. It always shows the public title and the public discussion. The description appears only when an admin switches on **Show the description publicly** (optionally as a cleaned-up public version). Screenshots and videos from the original submission are shown only with the submitter's consent, given on the form or later on their status page. Messages are private unless marked public: the team decides for its own replies, the submitter for theirs, and admins can hide any public message. Visitor comments can be switched off under **Settings → Roadmap & stages**. Contact details and attachments sent in the conversation are never public, and item pages are always `noindex`.
 
 Indexing is **off** by default (`noindex` everywhere, `robots.txt` disallows all). Turn on **Let search engines index the public pages** to allow the form, the roadmap and your own imprint and privacy pages, with canonical links and a `sitemap.xml`. Status pages, attachments, APIs and the admin area are always `noindex` and disallowed. Status pages also use a generic title and preview, so pasting a status link into a chat never reveals what the feedback is about.
 

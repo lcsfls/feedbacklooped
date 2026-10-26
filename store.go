@@ -88,10 +88,14 @@ func (a Attachment) IsImage() bool { return strings.HasPrefix(a.Mime, "image/") 
 func (a Attachment) IsVideo() bool { return strings.HasPrefix(a.Mime, "video/") }
 
 // Message is visible to both submitter and team (thread on the status page).
+// Public messages also show on the item's roadmap page. Visitor messages are
+// comments from the public roadmap (always public, no attachments).
 type Message struct {
 	ID        int       `json:"id"`
 	FromTeam  bool      `json:"from_team"`
-	Author    string    `json:"author,omitempty"` // admin display name for team messages
+	Visitor   bool      `json:"visitor,omitempty"`
+	Public    bool      `json:"public,omitempty"`
+	Author    string    `json:"author,omitempty"` // admin display name, or the visitor's chosen name
 	Body      string    `json:"body"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -148,8 +152,20 @@ func (t *Ticket) VisibleOnRoadmap() bool {
 	return t.OnRoadmap && t.BoardID == PublicBoardID && slices.Contains(roadmapStatuses, t.Status)
 }
 
-// HasPublicPage: the detail page at /roadmap/{id} may be shown (roadmap switched on is checked by the caller).
-func (t *Ticket) HasPublicPage() bool { return t.VisibleOnRoadmap() && t.PublicDetails }
+// HasPublicPage: the item page at /roadmap/{id} exists (roadmap switched on is checked by the caller).
+// It always shows the public title and public comments; the description only with PublicDetails.
+func (t *Ticket) HasPublicPage() bool { return t.VisibleOnRoadmap() }
+
+// PublicMessages: what the roadmap page shows of the conversation.
+func (t *Ticket) PublicMessages() []Message {
+	var out []Message
+	for _, m := range t.Messages {
+		if m.Public {
+			out = append(out, m)
+		}
+	}
+	return out
+}
 
 func (t *Ticket) PublicText() string {
 	if strings.TrimSpace(t.PublicBody) != "" {
@@ -225,9 +241,11 @@ type Settings struct {
 	RoadmapEnabled bool     `json:"roadmap_enabled"`
 	RoadmapIntro   string   `json:"roadmap_intro"`
 	DevStage       bool     `json:"dev_stage"` // extra "In development" column after Planned
-	MaxFileMB      int      `json:"max_file_mb"`
-	MaxFiles       int      `json:"max_files"`
-	MaxRecordSec   int      `json:"max_record_sec"`
+	// Visitors can comment on roadmap items. Stored inverted so it is on by default.
+	NoPublicComments bool `json:"no_public_comments,omitempty"`
+	MaxFileMB        int  `json:"max_file_mb"`
+	MaxFiles         int  `json:"max_files"`
+	MaxRecordSec     int  `json:"max_record_sec"`
 
 	NtfyURL    string `json:"ntfy_url"`
 	NtfyToken  string `json:"ntfy_token"`

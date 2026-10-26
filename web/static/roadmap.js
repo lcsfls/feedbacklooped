@@ -90,3 +90,59 @@
     if (first && getComputedStyle(board).overflowX === 'auto') board.scrollLeft = first.offsetLeft - board.offsetLeft;
   }
 })();
+
+// Open roadmap items in a modal: details on the left, the public discussion
+// on the right. The address follows (/roadmap/{id}), so links, Back and
+// reload all work; without JavaScript the link opens the item page.
+(() => {
+  const modal = document.getElementById('rm-modal');
+  const body = document.getElementById('rm-modal-body');
+  if (!modal || !body || typeof modal.showModal !== 'function') return;
+  let listTitle = document.title;
+  let seq = 0;
+
+  async function load(id) {
+    const my = ++seq;
+    body.innerHTML = '<p class="muted rm-loading">Loading …</p>';
+    if (!modal.open) modal.showModal();
+    document.documentElement.classList.add('modal-open');
+    try {
+      const res = await fetch('/roadmap/' + encodeURIComponent(id), { cache: 'no-store' });
+      if (my !== seq) return;
+      if (!res.ok) throw new Error();
+      const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+      const d = doc.getElementById('rm-detail');
+      if (!d) throw new Error();
+      body.replaceChildren(d);
+      document.title = doc.title;
+      const close = modal.querySelector('[data-rm-close]');
+      if (close) close.focus({ preventScroll: true });
+    } catch (e) {
+      if (my === seq) body.innerHTML = '<p class="muted rm-loading">This item is no longer on the roadmap.</p>';
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-rm-open]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    if (!modal.open) listTitle = document.title;
+    history.pushState({ rm: a.dataset.rmOpen }, '', a.getAttribute('href'));
+    load(a.dataset.rmOpen);
+  });
+
+  modal.addEventListener('close', () => {
+    seq++;
+    document.documentElement.classList.remove('modal-open');
+    document.title = listTitle;
+    body.replaceChildren();
+    if (history.state && history.state.rm) history.back();
+  });
+  // Click on the dimmed backdrop closes it.
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.close(); });
+  modal.querySelector('[data-rm-close]').addEventListener('click', () => modal.close());
+  addEventListener('popstate', (e) => {
+    if (e.state && e.state.rm) load(e.state.rm);
+    else if (modal.open) modal.close();
+  });
+})();

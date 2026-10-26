@@ -25,8 +25,8 @@
       {{range $i, $t := .Tickets}}{{with $t}}
       <li class="rm-item" data-search="{{.PublicSearchText}}"{{if and (eq $col.Key "done") (ge $i $.Limit)}} data-older{{end}}{{if or (index $.Miss .ID) (and (eq $col.Key "done") (ge $i $.Limit))}} hidden{{end}}>
         <span class="chip">{{.Category}}</span>
-        <p>{{if .PublicDetails}}<a class="rm-link" href="/roadmap/{{.ID}}">{{.PublicTitle}}</a>{{else}}{{.PublicTitle}}{{end}}</p>
-        <span class="muted small">{{if eq .Status "done"}}shipped {{end}}{{ago .UpdatedAt}}</span>
+        <p><a class="rm-link" href="/roadmap/{{.ID}}" data-rm-open="{{.ID}}">{{.PublicTitle}}</a></p>
+        <span class="rm-foot muted small"><span>{{if eq .Status "done"}}shipped {{end}}{{ago .UpdatedAt}}</span>{{with len .PublicMessages}}<span class="rm-comments" title="{{.}} comment{{if ne . 1}}s{{end}}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10a4 4 0 0 1 4 4v5a4 4 0 0 1-4 4h-6l-4.5 3v-3.2A4 4 0 0 1 3 13V8a4 4 0 0 1 4-4z"/></svg>{{.}}</span>{{end}}</span>
       </li>
       {{end}}{{end}}
     </ul>
@@ -38,5 +38,9 @@
   </div>
   {{end}}
 </section>
+<dialog class="rm-modal" id="rm-modal" aria-labelledby="rm-detail-title">
+  <button type="button" class="rm-modal-close" data-rm-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  <div class="rm-modal-body" id="rm-modal-body"></div>
+</dialog>
 {{end}}
-{{define "scripts"}}<script src="/static/roadmap.js?v={{.Version}}"></script>{{end}}
+{{define "scripts"}}<script src="/static/comments.js?v={{.Version}}"></script><script src="/static/roadmap.js?v={{.Version}}"></script>{{end}}

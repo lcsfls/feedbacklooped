@@ -1,13 +1,58 @@
 {{define "title"}}{{.T.PublicTitle}} · Roadmap · {{.S.Title}}{{end}}
+{{define "bodyclass"}}wide rm-item-page{{end}}
 {{define "content"}}
-<section class="narrow">
-  <p class="back"><a href="/roadmap">← Roadmap</a></p>
-  <p class="eyebrow"><span class="chip">{{.T.Category}}</span> <span class="rm-status rm-status-{{.T.Status}}">{{.StatusLabel}}</span> · updated {{ago .T.UpdatedAt}}</p>
-  <h1>{{.T.PublicTitle}}</h1>
-  <div class="card">
-    {{with .T.PublicText}}<div class="prose">{{.}}</div>{{else}}<p class="muted">No description.</p>{{end}}
-    {{template "attlist" (dict "Atts" .T.PublicMedia "TID" .T.ID "Q" "")}}
-  </div>
-  <p class="center"><a class="btn primary" href="/">Give your own feedback</a></p>
-</section>
+<p class="back"><a href="/roadmap">← Roadmap</a></p>
+{{template "rmdetail" .}}
 {{end}}
+{{define "scripts"}}<script src="/static/comments.js?v={{.Version}}"></script>{{end}}
+
+{{define "rmdetail"}}
+<article class="rm-detail" id="rm-detail" data-id="{{.T.ID}}" aria-labelledby="rm-detail-title">
+  <div class="rm-detail-main">
+    <p class="rm-meta"><span class="chip">{{.T.Category}}</span> <span class="rm-status rm-status-{{.T.Status}}">{{.StatusLabel}}</span> <span class="muted small">updated {{ago .T.UpdatedAt}}</span></p>
+    <h1 id="rm-detail-title">{{.T.PublicTitle}}</h1>
+    {{if .T.PublicDetails}}
+      {{with .T.PublicText}}<div class="prose">{{.}}</div>{{else}}<p class="muted">No description.</p>{{end}}
+      {{template "attlist" (dict "Atts" .T.PublicMedia "TID" .T.ID "Q" "")}}
+    {{else}}
+      <p class="muted">The team hasn’t shared more details about this one yet.</p>
+    {{end}}
+    <p class="rm-own muted small">Something else on your mind? <a href="/">Give your own feedback</a></p>
+  </div>
+  <aside class="rm-detail-side" id="comments" aria-label="Discussion">
+    {{$msgs := .T.PublicMessages}}
+    <h2>Discussion <span class="count">{{len $msgs}}</span></h2>
+    {{if $msgs}}
+    <ol class="thread public-thread" id="rm-thread">
+      {{range $msgs}}
+      <li class="msg {{if .FromTeam}}team{{else if .Visitor}}visitor{{else}}me{{end}}">
+        <div class="msg-head"><strong>{{template "pubauthor" (dict "M" . "S" $.S)}}</strong> <span>{{ago .CreatedAt}}</span></div>
+        {{if .Body}}<div class="prose">{{.Body}}</div>{{end}}
+      </li>
+      {{end}}
+    </ol>
+    {{else}}
+    <p class="muted small rm-nocomments">No comments yet.{{if .Comments}} Be the first.{{end}}</p>
+    {{end}}
+    {{if .Comments}}
+    <form class="comment-form" method="post" action="/roadmap/{{.T.ID}}/comment" data-ajax {{if .S.CaptchaEnabled}}data-pow{{end}}>
+      <input type="hidden" name="stamp" value="{{.Stamp}}">
+      <div class="hp" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+      <label class="sr-only" for="c-body-{{.T.ID}}">Your comment</label>
+      <textarea id="c-body-{{.T.ID}}" name="body" rows="3" maxlength="5000" required placeholder="Add a comment …"></textarea>
+      <div class="comment-row">
+        <label class="sr-only" for="c-name-{{.T.ID}}">Your name (optional)</label>
+        <input id="c-name-{{.T.ID}}" name="name" type="text" maxlength="40" placeholder="Name (optional)" autocomplete="nickname">
+        <button class="btn primary">Comment</button>
+      </div>
+      <p class="hint">Comments are public. Please don’t post personal data.</p>
+      <p class="error" role="alert" hidden></p>
+    </form>
+    {{else}}
+    <p class="muted small">Comments are closed.</p>
+    {{end}}
+  </aside>
+</article>
+{{end}}
+
+{{define "pubauthor"}}{{if .M.FromTeam}}{{if and .S.ShowTeamNames .M.Author}}{{.M.Author}} · Team{{else}}Team{{end}}{{else if .M.Visitor}}{{or .M.Author "Anonymous"}}{{else}}Original poster{{end}}{{end}}

@@ -310,13 +310,14 @@ func (a *App) handleTeamMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	author := a.currentUser(r).Name() // outside the lock: currentUser reads the store
+	public := r.FormValue("public") == "1"
 	err = a.store.Update(func(db *dbFile) error {
 		tt := findTicket(db, id)
 		if tt == nil {
 			return errNotFound
 		}
 		mid := tt.nextMessageID()
-		tt.Messages = append(tt.Messages, Message{ID: mid, FromTeam: true, Author: author, Body: body, CreatedAt: time.Now()})
+		tt.Messages = append(tt.Messages, Message{ID: mid, FromTeam: true, Author: author, Body: body, Public: public && tt.HasPublicPage(), CreatedAt: time.Now()})
 		for i := range atts {
 			atts[i].MessageID = mid
 		}
@@ -477,6 +478,7 @@ func (a *App) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		}
 		s.RoadmapEnabled = r.FormValue("roadmap_enabled") == "1"
 		s.DevStage = r.FormValue("dev_stage") == "1"
+		s.NoPublicComments = r.FormValue("public_comments") != "1"
 		s.ShowTeamNames = r.FormValue("show_team_names") == "1"
 		s.CaptchaEnabled = r.FormValue("captcha_enabled") == "1"
 		s.CaptchaDifficulty = formInt(r, "captcha_difficulty", s.CaptchaDifficulty, 1000, 1000000)
@@ -584,4 +586,35 @@ func (a *App) handleExport(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	enc.Encode(map[string]any{"exported_at": time.Now(), "tickets": tickets})
+}
+
+// handleMessageVisibility makes a team message public or private, and lets
+// admins hide any public message (moderation). Messages from the submitter
+// are never made public by the team: only they can decide that.
+func (a *App) handleMessageVisibility(w http.ResponseWriter, r *http.Request) {
+	id, mid := pathInt(r, "id"), pathInt(r, "mid")
+	public := r.FormValue("public") == "1"
+	err := a.store.Update(func(db *dbFile) error {
+		t := findTicket(db, id)
+		if t == nil {
+			return errNotFound
+		}
+		for i := range t.Messages {
+			m := &t.Messages[i]
+			if m.ID != mid {
+				continue
+			}
+			if public && (!m.FromTeam || !t.HasPublicPage()) {
+				return errNotFound
+			}
+			m.Public = public
+			return nil
+		}
+		return errNotFound
+	})
+	if err != nil {
+		a.notFound(w, r)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/admin/t/%d#m%d", id, mid), http.StatusSeeOther)
 }

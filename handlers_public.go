@@ -283,13 +283,16 @@ func (a *App) handleSubmitterReply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now()
+	// read settings before taking the write lock (Settings() locks too)
+	wantPublic := r.FormValue("public") == "1" && a.store.Settings().RoadmapEnabled
 	err = a.store.Update(func(db *dbFile) error {
 		tt := findTicket(db, t.ID)
 		if tt == nil {
 			return errors.New("gone")
 		}
 		mid := tt.nextMessageID()
-		tt.Messages = append(tt.Messages, Message{ID: mid, Body: body, CreatedAt: now})
+		public := wantPublic && tt.HasPublicPage()
+		tt.Messages = append(tt.Messages, Message{ID: mid, Body: body, Public: public, CreatedAt: now})
 		for i := range atts {
 			atts[i].MessageID = mid
 		}
@@ -382,7 +385,72 @@ func (a *App) handleRoadmapItem(w http.ResponseWriter, r *http.Request) {
 		a.notFound(w, r)
 		return
 	}
-	a.render(w, r, 200, "roadmapitem", pageData{"T": t, "StatusLabel": publicStatusLabel(t.Status)})
+	a.render(w, r, 200, "roadmapitem", pageData{"T": t, "StatusLabel": publicStatusLabel(t.Status),
+		"Stamp": a.formStamp(), "Comments": !a.store.Settings().NoPublicComments})
+}
+
+// handleComment: a visitor comments on a roadmap item. Same protection as
+// the feedback form: honeypot, minimum fill time, proof of work, rate limit.
+func (a *App) handleComment(w http.ResponseWriter, r *http.Request) {
+	if !a.sameOrigin(r) {
+		a.fail(w, r, 403, "Request from another site rejected.")
+		return
+	}
+	st := a.store.Settings()
+	t := a.store.Ticket(pathInt(r, "id"))
+	if !st.RoadmapEnabled || st.NoPublicComments || t == nil || !t.HasPublicPage() {
+		a.notFound(w, r)
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
+	var perr error
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/") {
+		perr = r.ParseMultipartForm(64 << 10)
+	} else {
+		perr = r.ParseForm()
+	}
+	if perr != nil {
+		a.fail(w, r, 400, "The comment is too long.")
+		return
+	}
+	if r.FormValue("website") != "" || !a.checkFormStamp(r.FormValue("stamp")) {
+		a.fail(w, r, 400, "Please wait a moment and send the comment again.")
+		return
+	}
+	if !a.checkPoW(r) {
+		a.fail(w, r, 400, "The spam check failed or expired. Please reload the page and try again (JavaScript is required).")
+		return
+	}
+	if !a.submitLimit.AllowN(a.clientKey(r), max(1, st.RateLimitPerHour)) {
+		a.fail(w, r, 429, "Too many comments in a short time. Please try again later.")
+		return
+	}
+	body := cleanText(r.FormValue("body"), 5000)
+	name := oneLine(cleanText(r.FormValue("name"), 40))
+	if strings.TrimSpace(body) == "" {
+		a.fail(w, r, 400, "The comment is empty.")
+		return
+	}
+	now := time.Now()
+	err := a.store.Update(func(db *dbFile) error {
+		tt := findTicket(db, t.ID)
+		if tt == nil || !tt.HasPublicPage() {
+			return errNotFound
+		}
+		tt.Messages = append(tt.Messages, Message{ID: tt.nextMessageID(), Visitor: true, Public: true, Author: name, Body: body, CreatedAt: now})
+		tt.UnreadReply = true
+		return nil
+	})
+	if err != nil {
+		a.notFound(w, r)
+		return
+	}
+	a.notify(Event{Kind: "comment", TicketID: t.ID, Title: t.Title, Category: t.Category, Body: body, At: now})
+	if wantsJSON(r) {
+		writeJSON(w, 200, map[string]any{"ok": true})
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/roadmap/%d#comments", t.ID), http.StatusSeeOther)
 }
 
 // handleShareMedia lets the submitter give or withdraw consent to show

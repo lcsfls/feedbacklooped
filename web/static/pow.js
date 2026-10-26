@@ -3,8 +3,7 @@
 // sha256(salt + n) === challenge in the background and puts the solution
 // into a hidden "altcha" field. Nothing leaves the browser except the result.
 (() => {
-  const forms = document.querySelectorAll('form[data-pow]');
-  if (!forms.length || !window.crypto?.subtle) return;
+  if (!window.crypto?.subtle) return;
   const enc = new TextEncoder();
   const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
   const MAX_AGE = 15 * 60 * 1000; // challenges expire after 20 min on the server
@@ -21,7 +20,8 @@
     throw new Error('no solution');
   }
 
-  forms.forEach((form) => {
+  function setup(form) {
+    if (form.powReady) return;
     let field = form.querySelector('input[name=altcha]');
     if (!field) {
       field = document.createElement('input');
@@ -43,7 +43,7 @@
     form.powReady = () => start();
     // Plain forms: hold the submit until the check is done.
     form.addEventListener('submit', (e) => {
-      if (form.id === 'fb-form') return; // handled in submit.js
+      if (form.id === 'fb-form' || form.hasAttribute('data-ajax')) return; // sent via fetch, which awaits powReady()
       if (field.value && Date.now() - solvedAt < MAX_AGE) return;
       e.preventDefault();
       const btn = form.querySelector('button:not([type=button])');
@@ -53,5 +53,7 @@
         alert('The spam check could not be completed. Please reload the page and try again.');
       });
     });
-  });
+  }
+  window.powSetup = setup;
+  document.querySelectorAll('form[data-pow]').forEach(setup);
 })();

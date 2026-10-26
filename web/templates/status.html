@@ -24,8 +24,8 @@
   {{if .T.Messages}}
   <ol class="thread">
     {{range .T.Messages}}
-    <li class="msg {{if .FromTeam}}team{{else}}me{{end}}">
-      <div class="msg-head"><strong>{{if .FromTeam}}{{if and $.S.ShowTeamNames .Author}}{{.Author}} · Team{{else}}Team{{end}}{{else}}You{{end}}</strong> <span>{{datetime .CreatedAt}}</span></div>
+    <li class="msg {{if .FromTeam}}team{{else if .Visitor}}visitor{{else}}me{{end}}">
+      <div class="msg-head"><strong>{{if .FromTeam}}{{if and $.S.ShowTeamNames .Author}}{{.Author}} · Team{{else}}Team{{end}}{{else if .Visitor}}{{or .Author "Anonymous"}} <span class="muted">· on the roadmap</span>{{else}}You{{end}}</strong> <span>{{datetime .CreatedAt}}</span>{{if .Public}}<span class="chip public small-chip"><svg class="globe" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c1.8 1.7 2.6 3.7 2.6 6S9.8 12.3 8 14C6.2 12.3 5.4 10.3 5.4 8S6.2 3.7 8 2z"/></svg>public</span>{{end}}</div>
       {{if .Body}}<div class="prose">{{.Body}}</div>{{end}}
       {{template "attlist" (dict "Atts" ($.T.AttachmentsFor .ID) "TID" $.T.ID "Q" $.Token)}}
     </li>
@@ -42,6 +42,9 @@
       <label for="reply">Add something</label>
       <textarea id="reply" name="body" rows="4" maxlength="20000" placeholder="New details, an answer to a question, “doesn’t happen anymore” …"></textarea>
     </div>
+    {{if and .S.RoadmapEnabled .T.HasPublicPage}}
+    <label class="check small"><input type="checkbox" name="public" value="1"> Also show this message on the <a href="/roadmap/{{.T.ID}}" target="_blank" rel="noopener">public roadmap</a> <span class="muted">(text only, attachments stay private)</span></label>
+    {{end}}
     <div class="field">
       <input type="file" name="files" multiple accept="image/*,video/*,.txt,.log">
     </div>

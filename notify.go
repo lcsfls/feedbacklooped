@@ -17,7 +17,7 @@ import (
 )
 
 type Event struct {
-	Kind     string    `json:"event"` // "new_ticket" | "reply"
+	Kind     string    `json:"event"` // "new_ticket" | "reply" | "comment"
 	TicketID int       `json:"id"`
 	Title    string    `json:"title"`
 	Category string    `json:"category"`
@@ -30,6 +30,9 @@ type Event struct {
 func (e Event) headline() string {
 	if e.Kind == "reply" {
 		return fmt.Sprintf("Reply on #%d: %s", e.TicketID, e.Title)
+	}
+	if e.Kind == "comment" {
+		return fmt.Sprintf("Public comment on #%d: %s", e.TicketID, e.Title)
 	}
 	return fmt.Sprintf("New feedback #%d (%s): %s", e.TicketID, e.Category, e.Title)
 }

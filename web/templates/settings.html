@@ -111,6 +111,8 @@
       <h2>Roadmap &amp; stages</h2>
       <label class="check"><input type="checkbox" name="roadmap_enabled" value="1" {{if .S.RoadmapEnabled}}checked{{end}}> Show public roadmap at <code>/roadmap</code></label>
       <label class="check"><input type="checkbox" name="dev_stage" value="1" {{if .S.DevStage}}checked{{end}}> Add an “In development” stage after Planned</label>
+      <label class="check"><input type="checkbox" name="public_comments" value="1" {{if not .S.NoPublicComments}}checked{{end}}> Visitors can comment on roadmap items</label>
+      <p class="hint">Comments are public, need no account and go through the same spam check as the form. You get notified, and can hide or delete them on the card.</p>
       <p class="hint">Adds a column to every board, a step on status pages and a column on the roadmap. Switching it off keeps cards that are already in it visible until you move them.</p>
       <div class="field">
         <label for="ri">Intro text</label>
@@ -301,6 +303,7 @@ We use your feedback to fix bugs and improve our product (legitimate interest, A
 
 4. Private status link
 After submitting you receive a private link. Anyone with this link can read your feedback and the replies, so keep it to yourself. Through the link you can add information and delete your feedback at any time.
+Public roadmap: if we put your feedback on our public roadmap, its title and possibly its description are shown there. Your screenshots and videos are shown only if you allow it, and your messages only if you mark them as public. Comments on the public roadmap are visible to everyone; giving a name is optional. If you switch between light and dark mode, that choice is stored in your browser only.
 
 5. Retention
 Feedback is kept until it has been dealt with. [Closed feedback is deleted automatically after X days.] You can delete it yourself at any time through your status link.
@@ -325,6 +328,7 @@ Wir nutzen dein Feedback, um Fehler zu beheben und unser Produkt zu verbessern (
 
 4. Privater Status-Link
 Nach dem Absenden erhältst du einen privaten Link. Wer diesen Link kennt, kann dein Feedback und die Antworten lesen, gib ihn also nicht weiter. Über den Link kannst du Informationen ergänzen und dein Feedback jederzeit löschen.
+Öffentliche Roadmap: Wenn wir dein Feedback auf unsere öffentliche Roadmap setzen, werden dort der Titel und ggf. die Beschreibung angezeigt. Deine Screenshots und Videos erscheinen nur, wenn du es erlaubst, und deine Nachrichten nur, wenn du sie als öffentlich markierst. Kommentare auf der öffentlichen Roadmap sind für alle sichtbar; ein Name ist freiwillig. Wenn du zwischen hellem und dunklem Modus wechselst, wird diese Wahl nur in deinem Browser gespeichert.
 
 5. Speicherdauer
 Feedback wird gespeichert, bis es bearbeitet ist. [Abgeschlossenes Feedback wird nach X Tagen automatisch gelöscht.] Du kannst es jederzeit selbst über deinen Status-Link löschen.
