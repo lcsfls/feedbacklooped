@@ -8,6 +8,21 @@
   let token = document.getElementById('token');
   let busy = false;
 
+  // Move the token into a lane with a short arc instead of teleporting it.
+  function fly(lane) {
+    const from = token.getBoundingClientRect();
+    lane.append(token);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const to = token.getBoundingClientRect();
+    const dx = from.left - to.left, dy = from.top - to.top;
+    token.animate([
+      { transform: `translate(${dx}px, ${dy}px) scale(1)` },
+      { transform: `translate(${dx / 2}px, ${dy / 2 - 18}px) scale(1.12) rotate(-4deg)`, offset: .45 },
+      { transform: 'none' },
+    ], { duration: 480, easing: 'cubic-bezier(.22,1,.36,1)' });
+    lane.classList.remove('landed'); void lane.offsetWidth; lane.classList.add('landed');
+  }
+
   async function moveTo(lane) {
     const current = track.querySelector('.lane.current');
     if (busy || lane === current) return;
@@ -17,7 +32,7 @@
     current.setAttribute('aria-pressed', 'false');
     lane.classList.add('current', 'saving');
     lane.setAttribute('aria-pressed', 'true');
-    lane.append(token);
+    fly(lane);
     try {
       const res = await fetch('/admin/api/move', {
         method: 'POST',
@@ -33,7 +48,7 @@
       lane.setAttribute('aria-pressed', 'false');
       current.classList.add('current');
       current.setAttribute('aria-pressed', 'true');
-      current.append(token);
+      fly(current);
       hint.textContent = 'Moving failed. Please try again.';
     } finally {
       lane.classList.remove('saving');

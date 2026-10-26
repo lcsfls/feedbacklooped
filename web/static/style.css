@@ -85,6 +85,8 @@
 }
 
 * { box-sizing: border-box; border-color: var(--border); }
+/* Reserve the scrollbar's space so pages don't shift sideways between long and short pages. */
+html { scrollbar-gutter: stable; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
@@ -102,7 +104,7 @@ a { color: var(--primary); text-underline-offset: 4px; }
 h1 { font-size: 1.5rem; line-height: 1.25; font-weight: 600; letter-spacing: -0.025em; margin: .15em 0 .5em; }
 h2 { font-size: 1rem; font-weight: 600; margin: 1.75em 0 .6em; letter-spacing: -0.01em; }
 .card h2:first-child, .card h1:first-child { margin-top: 0; }
-h3 { font-size: .75rem; font-weight: 500; margin: 1.4em 0 .5em; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: .06em; }
+h3 { font-size: .85rem; font-weight: 600; margin: 1.4em 0 .5em; color: var(--muted-foreground); }
 code, kbd { font: .85em var(--font-mono); background: var(--muted); padding: .1em .35em; border-radius: calc(var(--radius) - 4px); }
 kbd { border: 1px solid var(--border); }
 ::selection { background: var(--primary); color: var(--primary-foreground); }
@@ -300,7 +302,7 @@ details.contact[open] summary { margin-bottom: 8px; }
 
 .board { display: grid; grid-template-columns: repeat(5, minmax(220px, 1fr)); gap: 12px; align-items: start; overflow-x: auto; padding-bottom: 8px; }
 .col { background: color-mix(in srgb, var(--muted) 70%, transparent); border: 1px solid var(--border); border-radius: calc(var(--radius) + 4px); padding: 10px; min-height: 120px; }
-.col h2 { font-size: .75rem; font-weight: 500; text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground); margin: 2px 4px 10px; display: flex; justify-content: space-between; align-items: center; }
+.col h2 { font-size: .85rem; font-weight: 600; color: var(--muted-foreground); margin: 2px 4px 10px; display: flex; justify-content: space-between; align-items: center; }
 .col h2 .count { font-family: var(--font-mono); font-size: .75rem; }
 .col-planned h2 { color: var(--info-text); }
 .col-rejected { opacity: .85; }
@@ -369,7 +371,7 @@ input[type=color] { width: 44px; height: 32px; padding: 2px; border: 1px solid v
 
 /* Tables, account, legal */
 .table { width: 100%; border-collapse: collapse; font-size: .875rem; }
-.table th { text-align: left; font-weight: 500; color: var(--muted-foreground); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; padding: 0 8px 8px; border-bottom: 1px solid var(--border); }
+.table th { text-align: left; font-weight: 500; color: var(--muted-foreground); font-size: .8rem; padding: 0 8px 8px; border-bottom: 1px solid var(--border); }
 .table td { padding: 10px 8px; border-bottom: 1px solid var(--border); }
 .table tr:last-child td { border-bottom: 0; }
 .table .mono { font-family: var(--font-mono); font-size: .8rem; }
@@ -389,7 +391,7 @@ input:disabled { opacity: .6; }
   transition: border-color .15s, background .15s, color .15s;
 }
 .lane:hover { color: var(--foreground); border-color: var(--input); }
-.lane-label { font-size: .75rem; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; }
+.lane-label { font-size: .85rem; font-weight: 600; }
 .lane.current { color: var(--foreground); background: var(--card); border-style: solid; border-color: var(--input); box-shadow: var(--shadow-xs); }
 .lane.over { border-color: var(--primary); border-style: solid; background: color-mix(in srgb, var(--primary) 6%, var(--card)); color: var(--foreground); }
 .lane.saving { opacity: .7; }
@@ -423,3 +425,109 @@ input:disabled { opacity: .6; }
 .og-row { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
 .og-preview { width: 300px; height: auto; aspect-ratio: 1200 / 630; object-fit: cover; border: 1px solid var(--border); border-radius: var(--radius); background: var(--muted); }
 .og-row > div { flex: 1; min-width: 240px; }
+
+
+/* ==========================================================================
+   Motion. Everything here answers something the user does; nothing loops.
+   prefers-reduced-motion (above) turns it off.
+   ========================================================================== */
+:root {
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+}
+
+/* Page changes: header stays put, the active nav pill and board tab glide to
+   their new place, content cross-fades (View Transitions, progressive). */
+@view-transition { navigation: auto; }
+.top { view-transition-name: topbar; }
+nav a[aria-current] { view-transition-name: nav-pill; }
+.tab.active { view-transition-name: board-tab; }
+::view-transition-group(nav-pill), ::view-transition-group(board-tab) { animation-duration: .38s; animation-timing-function: var(--ease-spring); }
+::view-transition-old(root) { animation: .16s ease-in both vt-out; }
+::view-transition-new(root) { animation: .28s var(--ease-out) both vt-in; }
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(6px); } }
+
+/* Buttons respond to the press. */
+.btn, .tab, nav a, .lane { transition: background .15s, color .15s, border-color .15s, box-shadow .15s, transform .18s var(--ease-spring); }
+.btn:active, .tab:active, .lane:active { transform: scale(.97); }
+
+/* Segmented control: a liquid blob that stretches towards the new option,
+   lets its trailing edge catch up, and settles with a little bounce. */
+.segmented { position: relative; isolation: isolate; overflow: hidden; }
+.segmented .seg-blob {
+  position: absolute; z-index: -1; top: 3px; bottom: 3px; left: var(--l, 3px); right: var(--r, 3px);
+  border-radius: calc(var(--radius) - 3px); background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-xs);
+  transition: left .46s cubic-bezier(.3, 1.22, .5, 1) var(--dl, 0s), right .46s cubic-bezier(.3, 1.22, .5, 1) var(--dr, 0s);
+}
+.segmented.js input:checked + span { background: transparent; border-color: transparent; box-shadow: none; }
+.segmented.js label span { transition: color .2s; }
+.segmented .seg-blob.squish { animation: squish .42s var(--ease-out); }
+@keyframes squish { 40% { transform: scaleY(.86); } 100% { transform: none; } }
+
+/* Checkboxes in forms become switches with a springy knob. */
+.check input[type=checkbox] {
+  -webkit-appearance: none; appearance: none; flex-shrink: 0; position: relative; margin: 0;
+  width: 34px; height: 20px; border-radius: 999px; background: var(--input); cursor: pointer;
+  transition: background .2s;
+}
+.check input[type=checkbox]::before {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / .25);
+  transition: transform .32s var(--ease-spring), width .18s var(--ease-out);
+}
+.check input[type=checkbox]:active::before { width: 20px; }
+.check input[type=checkbox]:checked { background: var(--primary); }
+.check input[type=checkbox]:checked::before { transform: translateX(14px); }
+.check input[type=checkbox]:checked:active::before { transform: translateX(10px); }
+.check input[type=checkbox]:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 45%, transparent); }
+.check.small input[type=checkbox] { width: 28px; height: 16px; }
+.check.small input[type=checkbox]::before { width: 12px; height: 12px; }
+.check.small input[type=checkbox]:checked::before { transform: translateX(12px); }
+
+/* Kanban: cards make room smoothly (FLIP in board.js); the dragged card leaves a ghost slot. */
+.kcard { transition: box-shadow .2s, border-color .2s, opacity .2s; }
+.kcard.dragging { opacity: 1; background: transparent; border: 1.5px dashed var(--input); box-shadow: none; }
+.kcard.dragging > * { visibility: hidden; }
+.kcard.dropped { animation: drop-settle .45s var(--ease-spring); }
+@keyframes drop-settle { 0% { transform: scale(1.04) rotate(-1deg); box-shadow: var(--shadow-sm); } 100% { transform: none; } }
+.count.bump { animation: bump .4s var(--ease-spring); display: inline-block; }
+@keyframes bump { 40% { transform: scale(1.35); } }
+
+/* Status track: the token flies to its new lane (Web Animations in ticket.js). */
+.lane.current { transition-duration: .3s; }
+.lane.landed { animation: lane-land .5s var(--ease-out); }
+@keyframes lane-land { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 35%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+
+/* Flash messages become a toast that slides in and leaves on its own. */
+.flash {
+  position: fixed; z-index: 50; top: calc(var(--topbar-height) + 12px); left: 50%; width: auto; max-width: min(520px, calc(100vw - 32px));
+  margin: 0; padding: 10px 18px; transform: translateX(-50%); box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+  animation: toast-in .45s var(--ease-spring) both;
+}
+.flash.out { animation: toast-out .3s var(--ease-out) forwards; }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, -14px) scale(.96); } }
+@keyframes toast-out { to { opacity: 0; transform: translate(-50%, -10px); } }
+
+/* Upload list: new files pop in. */
+.filelist li { animation: pop-in .35s var(--ease-spring) both; }
+@keyframes pop-in { from { opacity: 0; transform: scale(.94) translateY(4px); } }
+.drop.over { transform: scale(1.01); transition: transform .25s var(--ease-spring), border-color .15s, background .15s; }
+
+/* Success: the one orchestrated moment – a check draws itself. */
+.done-check { width: 44px; height: 44px; margin-bottom: 8px; }
+.done-check circle { fill: none; stroke: var(--success); stroke-width: 3; stroke-dasharray: 126; stroke-dashoffset: 126; animation: draw .55s var(--ease-out) .05s forwards; }
+.done-check path { fill: none; stroke: var(--success); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 30; stroke-dashoffset: 30; animation: draw .35s var(--ease-out) .5s forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.done:not([hidden]) { animation: pop-in .45s var(--ease-spring) both; }
+
+/* Status page: progress fills up to the current step. */
+.steps li::before { transform-origin: left; animation: fill .7s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 90ms); }
+.steps li:nth-child(2) { --i: 1; } .steps li:nth-child(3) { --i: 2; } .steps li:nth-child(4) { --i: 3; }
+@keyframes fill { from { transform: scaleX(0); } }
+.steps li.current::after { animation: pulse-ring 1.6s var(--ease-out) .5s 2; }
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 40%, transparent); } 100% { box-shadow: 0 0 0 9px transparent; } }
+
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+}

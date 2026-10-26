@@ -30,7 +30,7 @@
     const card = e.target.closest('.kcard');
     if (!card) return;
     dragged = card;
-    card.classList.add('dragging');
+    setTimeout(() => card.classList.add('dragging'), 0); // after the browser has taken the drag image
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', card.dataset.id);
   });
@@ -62,8 +62,14 @@
     board.querySelectorAll('.cards.over').forEach((l) => l !== list && l.classList.remove('over'));
     list.classList.add('over');
     const after = afterElement(list, e.clientY);
-    if (after) list.insertBefore(dragged, after);
-    else list.appendChild(dragged);
+    // Only touch the DOM when the slot actually changes, then animate the neighbours.
+    if (after === dragged.nextElementSibling && list.contains(dragged)) return;
+    if (!after && list.lastElementChild === dragged) return;
+    const others = board.querySelectorAll('.kcard:not(.dragging)');
+    (window.flip || ((_, f) => f()))(others, () => {
+      if (after) list.insertBefore(dragged, after);
+      else list.appendChild(dragged);
+    });
   });
 
   board.addEventListener('drop', async (e) => {
@@ -72,7 +78,14 @@
     e.preventDefault();
     const card = dragged;
     const order = [...list.querySelectorAll('.kcard')].map((el) => +el.dataset.id);
+    const before = [...board.querySelectorAll('.count')].map((c) => c.textContent);
     counts();
+    board.querySelectorAll('.count').forEach((c, i) => {
+      if (c.textContent !== before[i]) { c.classList.remove('bump'); c.offsetWidth; c.classList.add('bump'); }
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dropped'); card.offsetWidth; card.classList.add('dropped');
+    }, { once: true });
     try {
       const res = await fetch('/admin/api/move', {
         method: 'POST',
