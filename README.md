@@ -2,6 +2,8 @@
 
 A minimal, self-hosted, white-label feedback portal with a kanban board. Let users report bugs and ideas anonymously, with screenshots and screen recordings, and close the loop with them through a private status link.
 
+![The admin board: Inbox, In review, Planned, In development, Done and Declined columns; cards shown on the public roadmap have a green edge](docs/screenshots/board.png)
+
 - **Anonymous:** no account, no email address. Submitters get a private status link.
 - **Screenshots & videos:** take a screenshot of a tab, window or screen and mark it up (pen, box, circle, arrow, hide sensitive parts), record the screen, drag & drop or paste with <kbd>Ctrl</kbd>+<kbd>V</kbd> – all in the browser.
 - **On any website:** prefilled links or an embeddable widget (one `<script>` tag) that sends the page URL along.
@@ -21,6 +23,20 @@ A minimal, self-hosted, white-label feedback portal with a kanban board. Let use
 
 > [!WARNING]
 > **100 % vibe-coded.** Every line of this project – code, templates, styles, docs – was written by [Claude](https://claude.ai) (Anthropic’s AI model) in a chat with its maintainer, who described what they wanted and tested the result. It has been tested end to end and reviewed for common security issues, but **it has not been audited by an independent human security expert.** Read the [security notes](#security) before you put it on the internet, and treat it like any young, small project: run it behind a reverse proxy, keep it updated, keep backups.
+
+## Screenshots
+
+All screenshots use made-up demo data for a fictional product.
+
+| Feedback form | Mark up a screenshot before sending |
+|---|---|
+| ![Feedback form with category, summary, description and an attached screenshot](docs/screenshots/form.png) | ![Markup editor with a red box and an arrow on a screenshot](docs/screenshots/markup.png) |
+| **Widget on your own site** | **Card with conversation and internal notes** |
+| ![Feedback widget opened on a website](docs/screenshots/widget.png) | ![Card page with status track, attachment, public roadmap settings and conversation](docs/screenshots/card.png) |
+| **Private status page for the submitter** | **Public roadmap with search** |
+| ![Status page showing progress steps and the conversation with the team](docs/screenshots/status.png) | ![Public roadmap with search and four columns](docs/screenshots/roadmap.png) |
+| **Dark mode** | **On phones** |
+| ![The admin board in dark mode](docs/screenshots/board-dark.png) | ![Form, roadmap and a public roadmap item on a phone](docs/screenshots/mobile.png) |
 
 ## Run with Docker
 

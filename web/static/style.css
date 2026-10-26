@@ -178,6 +178,10 @@ main { flex: 1 0 auto; width: 100%; max-width: 1400px; margin: 0 auto; padding: 
 .card { background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) + 4px); padding: 24px; box-shadow: var(--shadow-sm); margin-bottom: 16px; }
 .form .field { margin-bottom: 18px; border: 0; padding: 0; min-width: 0; }
 .field > label, .label, legend { display: block; font-weight: 500; font-size: .875rem; margin-bottom: 8px; padding: 0; }
+/* switches inside a field keep their row layout */
+.field > label.check { display: flex; }
+.field > label.check[hidden] { display: none; }
+.field > label.check.small { font-weight: 400; font-size: .8rem; }
 .meta .label { display: inline; margin-right: 6px; color: var(--muted-foreground); }
 .opt { color: var(--muted-foreground); font-weight: 400; }
 input[type=text], input[type=url], input[type=password], input[type=number], input[type=search], input[type=email], select, textarea {
@@ -712,7 +716,7 @@ body.board-page main { max-width: none; }
   body.board-page main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding-top: 20px; padding-bottom: 12px; }
   body.board-page .tabs, body.board-page .toolbar { flex: none; }
   body.board-page .toolbar { margin-bottom: 14px; }
-  body.board-page .board { flex: 1 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr); grid-auto-columns: minmax(250px, 1fr); }
+  body.board-page .board { flex: 1 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr); grid-auto-columns: minmax(220px, 1fr); }
   body.board-page .col { display: flex; flex-direction: column; min-height: 0; max-height: 100%; }
   body.board-page .col h2 { flex: none; }
   body.board-page .cards { flex: 1 1 auto; min-height: 60px; overflow-y: auto; overscroll-behavior: contain; padding: 2px; margin: -2px; scrollbar-width: thin; }
