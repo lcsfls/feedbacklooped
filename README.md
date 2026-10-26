@@ -7,7 +7,9 @@ A minimal, self-hosted, white-label feedback portal with a kanban board. Let use
 - **On any website:** prefilled links or an embeddable widget (one `<script>` tag) that sends the page URL along.
 - **Board:** Inbox → In review → Planned → Done / Declined, with drag & drop on the board and on each card’s page.
 - **Two-way conversation:** your replies show up on the submitter's status page, and they can add details there.
-- **Public roadmap** (optional, titles only).
+- **Public roadmap** (optional): titles by default, plus an optional public detail page per card. Screenshots and videos appear there only if the submitter allowed it (and they can take it back on their status page).
+- **Optional "In development" stage** between Planned and Done.
+- **Clear visibility on the board**: cards shown publicly get a green edge and a *Public* chip; filter by visibility.
 - **Private boards** next to the public one, for internal work that never leaves the admin area.
 - **Link previews and SEO:** Open Graph / Twitter card with your own image, optional indexing of the public pages with sitemap.
 - **Notifications** via ntfy, webhook (Slack/Mattermost/n8n compatible) or email.
@@ -78,6 +80,8 @@ The **public board** receives every submission from the feedback form and is the
 ## Search engines & link previews
 
 Every page carries Open Graph and Twitter card tags, so links shared in Slack, Teams, LinkedIn, WhatsApp or X get a proper preview. Upload your own preview image (PNG/JPEG, 1200 × 630) under **Settings → Link preview image**; a neutral default is used otherwise.
+
+Roadmap detail pages (`/roadmap/{id}`) exist only for cards where an admin switched on **Public detail page**. They show the public title and the description, or a cleaned-up public description written by the team. The conversation, contact details and anything sent later in the conversation are never public; screenshots and videos from the original submission are shown only with the submitter's consent, given on the form or later on their status page. Detail pages are always `noindex`.
 
 Indexing is **off** by default (`noindex` everywhere, `robots.txt` disallows all). Turn on **Let search engines index the public pages** to allow the form, the roadmap and your own imprint and privacy pages, with canonical links and a `sitemap.xml`. Status pages, attachments, APIs and the admin area are always `noindex` and disallowed. Status pages also use a generic title and preview, so pasting a status link into a chat never reveals what the feedback is about.
 

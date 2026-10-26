@@ -47,7 +47,9 @@
     render();
   }
 
+  const consent = document.getElementById('share-consent');
   function render() {
+    if (consent) consent.hidden = !files.some((f) => /^(image|video)\//.test(f.type));
     list.querySelectorAll('[data-url]').forEach((el) => URL.revokeObjectURL(el.dataset.url));
     list.innerHTML = '';
     files.forEach((f, i) => {

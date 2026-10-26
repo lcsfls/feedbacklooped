@@ -37,6 +37,7 @@ func (a *App) handleAdminHome(w http.ResponseWriter, r *http.Request) {
 	for _, s := range Statuses {
 		cols = append(cols, col{Key: s.Key, Label: s.Label})
 	}
+	public := 0
 	unread := 0
 	for _, t := range a.store.Tickets() {
 		if t.BoardID != board.ID {
@@ -45,13 +46,19 @@ func (a *App) handleAdminHome(w http.ResponseWriter, r *http.Request) {
 		if t.UnreadReply {
 			unread++
 		}
+		if t.VisibleOnRoadmap() {
+			public++
+		}
 		for i := range cols {
 			if cols[i].Key == t.Status {
 				cols[i].Tickets = append(cols[i].Tickets, t)
 			}
 		}
 	}
-	a.render(w, r, 200, "board", pageData{"Cols": cols, "Unread": unread, "Board": board, "Tabs": a.boardTabs()})
+	if !a.store.Settings().DevStage {
+		cols = slices.DeleteFunc(cols, func(c col) bool { return c.Key == DevStatus && len(c.Tickets) == 0 })
+	}
+	a.render(w, r, 200, "board", pageData{"Cols": cols, "Unread": unread, "Public": public, "Board": board, "Tabs": a.boardTabs()})
 }
 
 func (a *App) handleSetup(w http.ResponseWriter, r *http.Request) {
@@ -227,7 +234,8 @@ func (a *App) handleTicket(w http.ResponseWriter, r *http.Request) {
 			return nil
 		})
 	}
-	a.render(w, r, 200, "ticket", pageData{"T": t, "Board": a.store.Board(t.BoardID), "Boards": a.store.Boards()})
+	a.render(w, r, 200, "ticket", pageData{"T": t, "Board": a.store.Board(t.BoardID), "Boards": a.store.Boards(),
+		"Statuses": a.store.Settings().StatusesFor(t.Status)})
 }
 
 func (a *App) handleTicketUpdate(w http.ResponseWriter, r *http.Request) {
@@ -263,6 +271,12 @@ func (a *App) handleTicketUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 		t.OnRoadmap = r.FormValue("on_roadmap") == "1" && t.BoardID == PublicBoardID
 		t.RoadmapTitle = cleanText(r.FormValue("roadmap_title"), 200)
+		t.PublicDetails = t.OnRoadmap && r.FormValue("public_details") == "1"
+		t.PublicBody = cleanText(r.FormValue("public_body"), 20000)
+		if t.Internal {
+			// the team's own card: the team decides; for submissions only the submitter can
+			t.ShareMedia = r.FormValue("share_media") == "1"
+		}
 		t.UpdatedAt = time.Now()
 		return nil
 	})
@@ -462,6 +476,7 @@ func (a *App) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 			s.Categories = cats
 		}
 		s.RoadmapEnabled = r.FormValue("roadmap_enabled") == "1"
+		s.DevStage = r.FormValue("dev_stage") == "1"
 		s.ShowTeamNames = r.FormValue("show_team_names") == "1"
 		s.CaptchaEnabled = r.FormValue("captcha_enabled") == "1"
 		s.CaptchaDifficulty = formInt(r, "captcha_difficulty", s.CaptchaDifficulty, 1000, 1000000)

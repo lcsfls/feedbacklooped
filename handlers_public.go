@@ -192,6 +192,7 @@ func (a *App) handleSubmit(w http.ResponseWriter, r *http.Request) {
 		db.Tickets = append(db.Tickets, &Ticket{
 			ID: id, BoardID: PublicBoardID, Title: title, Body: body, Category: category, Contact: contact, Context: context, PageURL: pageURL,
 			Status: "inbox", Pos: minPos(db, "inbox"), TokenHash: hashToken(token),
+			ShareMedia:  r.FormValue("share_media") == "1",
 			Attachments: atts, CreatedAt: now, UpdatedAt: now,
 		})
 		return nil
@@ -221,8 +222,24 @@ func (a *App) handleStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Robots-Tag", "noindex")
 	token := r.PathValue("token")
+	type step struct {
+		Label            string
+		Reached, Current bool
+	}
+	var steps []step
+	reached := true
+	for _, s := range a.store.Settings().StatusesFor(t.Status) {
+		if s.Key == "rejected" {
+			continue
+		}
+		cur := s.Key == t.Status
+		steps = append(steps, step{s.PublicLabel, reached, cur})
+		if cur {
+			reached = false
+		}
+	}
 	a.render(w, r, 200, "status", pageData{
-		"T": t, "Token": token, "TokenQ": url.QueryEscape(token), "Stamp": a.formStamp(),
+		"T": t, "Steps": steps, "Token": token, "TokenQ": url.QueryEscape(token), "Stamp": a.formStamp(),
 		"StatusURL": a.baseURL(r) + "/s/" + token,
 	})
 }
@@ -300,14 +317,17 @@ func (a *App) handleRoadmap(w http.ResponseWriter, r *http.Request) {
 		a.notFound(w, r)
 		return
 	}
-	cols := []struct {
+	type rmCol struct {
 		Key, Label string
 		Tickets    []*Ticket
-	}{{"review", "In review", nil}, {"planned", "Planned", nil}, {"done", "Done", nil}}
-	for _, t := range a.store.Tickets() {
-		if !t.OnRoadmap || t.BoardID != PublicBoardID {
-			continue
-		}
+	}
+	tickets := slices.DeleteFunc(a.store.Tickets(), func(t *Ticket) bool { return !t.VisibleOnRoadmap() })
+	cols := []rmCol{{"review", "In review", nil}, {"planned", "Planned", nil}}
+	if st.DevStage || slices.ContainsFunc(tickets, func(t *Ticket) bool { return t.Status == DevStatus }) {
+		cols = append(cols, rmCol{DevStatus, "In development", nil})
+	}
+	cols = append(cols, rmCol{"done", "Done", nil})
+	for _, t := range tickets {
 		for i := range cols {
 			if cols[i].Key == t.Status {
 				cols[i].Tickets = append(cols[i].Tickets, t)
@@ -315,26 +335,52 @@ func (a *App) handleRoadmap(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// Done: most recently finished first, max. 25.
-	done := cols[2].Tickets
+	last := len(cols) - 1
+	done := cols[last].Tickets
 	sort.SliceStable(done, func(i, j int) bool { return done[i].UpdatedAt.After(done[j].UpdatedAt) })
 	if len(done) > 25 {
-		cols[2].Tickets = done[:25]
+		cols[last].Tickets = done[:25]
 	}
 	a.render(w, r, 200, "roadmap", pageData{"Cols": cols})
+}
+
+// handleRoadmapItem is the public detail page of a roadmap card. It exists
+// only when an admin switched it on for that card; media only with consent.
+func (a *App) handleRoadmapItem(w http.ResponseWriter, r *http.Request) {
+	t := a.store.Ticket(pathInt(r, "id"))
+	if !a.store.Settings().RoadmapEnabled || t == nil || !t.HasPublicPage() {
+		a.notFound(w, r)
+		return
+	}
+	a.render(w, r, 200, "roadmapitem", pageData{"T": t, "StatusLabel": publicStatusLabel(t.Status)})
+}
+
+// handleShareMedia lets the submitter give or withdraw consent to show
+// their screenshots and videos on the public detail page.
+func (a *App) handleShareMedia(w http.ResponseWriter, r *http.Request) {
+	if !a.sameOrigin(r) {
+		a.fail(w, r, 403, "Request from another site rejected.")
+		return
+	}
+	token := r.PathValue("token")
+	t := a.store.TicketByToken(token)
+	if t == nil {
+		a.notFound(w, r)
+		return
+	}
+	share := r.FormValue("share_media") == "1"
+	a.store.Update(func(db *dbFile) error {
+		if x := findTicket(db, t.ID); x != nil {
+			x.ShareMedia = share
+		}
+		return nil
+	})
+	http.Redirect(w, r, "/s/"+url.PathEscape(token)+"#sharing", http.StatusSeeOther)
 }
 
 func (a *App) handleMedia(w http.ResponseWriter, r *http.Request) {
 	t := a.store.Ticket(pathInt(r, "tid"))
 	if t == nil {
-		http.NotFound(w, r)
-		return
-	}
-	allowed := a.isAdmin(r)
-	if !allowed {
-		tok := r.URL.Query().Get("t")
-		allowed = tok != "" && t.TokenHash != "" && hashToken(tok) == t.TokenHash
-	}
-	if !allowed {
 		http.NotFound(w, r)
 		return
 	}
@@ -348,6 +394,20 @@ func (a *App) handleMedia(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	allowed := a.isAdmin(r)
+	if !allowed {
+		tok := r.URL.Query().Get("t")
+		allowed = tok != "" && t.TokenHash != "" && hashToken(tok) == t.TokenHash
+	}
+	public := false
+	if !allowed && a.store.Settings().RoadmapEnabled && t.HasPublicPage() {
+		public = slices.ContainsFunc(t.PublicMedia(), func(x Attachment) bool { return x.ID == att.ID })
+		allowed = public
+	}
+	if !allowed {
+		http.NotFound(w, r)
+		return
+	}
 	f, err := os.Open(filepath.Join(a.store.Uploads, att.File))
 	if err != nil {
 		http.NotFound(w, r)
@@ -357,6 +417,10 @@ func (a *App) handleMedia(w http.ResponseWriter, r *http.Request) {
 	h := w.Header()
 	h.Set("Content-Type", att.Mime)
 	h.Set("Cache-Control", "private, max-age=3600")
+	if public {
+		// short, so withdrawn consent takes effect soon
+		h.Set("Cache-Control", "public, max-age=300")
+	}
 	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
 	disp := "inline"
 	if !att.IsImage() && !att.IsVideo() || r.URL.Query().Get("dl") == "1" {

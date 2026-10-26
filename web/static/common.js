@@ -90,3 +90,8 @@ document.getElementById('sentfrom-remove')?.addEventListener('click', () => {
   box.classList.add('removed');
   setTimeout(() => box.remove(), 250);
 });
+
+// Checkboxes that save their form right away (e.g. sharing consent on the status page).
+document.querySelectorAll('input[data-autosubmit]').forEach((el) => {
+  el.addEventListener('change', () => el.form && el.form.requestSubmit());
+});

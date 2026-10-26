@@ -1,0 +1,13 @@
+{{define "title"}}{{.T.PublicTitle}} · Roadmap · {{.S.Title}}{{end}}
+{{define "content"}}
+<section class="narrow">
+  <p class="back"><a href="/roadmap">← Roadmap</a></p>
+  <p class="eyebrow"><span class="chip">{{.T.Category}}</span> <span class="rm-status rm-status-{{.T.Status}}">{{.StatusLabel}}</span> · updated {{ago .T.UpdatedAt}}</p>
+  <h1>{{.T.PublicTitle}}</h1>
+  <div class="card">
+    {{with .T.PublicText}}<div class="prose">{{.}}</div>{{else}}<p class="muted">No description.</p>{{end}}
+    {{template "attlist" (dict "Atts" .T.PublicMedia "TID" .T.ID "Q" "")}}
+  </div>
+  <p class="center"><a class="btn primary" href="/">Give your own feedback</a></p>
+</section>
+{{end}}

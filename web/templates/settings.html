@@ -108,8 +108,10 @@
     </div>
 
     <div class="card">
-      <h2>Roadmap</h2>
+      <h2>Roadmap &amp; stages</h2>
       <label class="check"><input type="checkbox" name="roadmap_enabled" value="1" {{if .S.RoadmapEnabled}}checked{{end}}> Show public roadmap at <code>/roadmap</code></label>
+      <label class="check"><input type="checkbox" name="dev_stage" value="1" {{if .S.DevStage}}checked{{end}}> Add an “In development” stage after Planned</label>
+      <p class="hint">Adds a column to every board, a step on status pages and a column on the roadmap. Switching it off keeps cards that are already in it visible until you move them.</p>
       <div class="field">
         <label for="ri">Intro text</label>
         <input id="ri" name="roadmap_intro" type="text" value="{{.S.RoadmapIntro}}">

@@ -5,11 +5,13 @@
   // Filtering
   const q = document.getElementById('q');
   const cat = document.getElementById('cat');
+  const vis = document.getElementById('vis');
   function filter() {
     const term = q.value.trim().toLowerCase();
     const c = cat.value;
+    const v = vis ? vis.value : '';
     board.querySelectorAll('.kcard').forEach((el) => {
-      const hit = (!term || el.dataset.search.toLowerCase().includes(term)) && (!c || el.dataset.cat === c);
+      const hit = (!term || el.dataset.search.toLowerCase().includes(term)) && (!c || el.dataset.cat === c) && (!v || el.dataset.vis === v);
       el.hidden = !hit;
     });
     counts();
@@ -21,6 +23,7 @@
   }
   q.addEventListener('input', filter);
   cat.addEventListener('change', filter);
+  if (vis) vis.addEventListener('change', filter);
 
   // Drag & Drop
   let dragged = null;

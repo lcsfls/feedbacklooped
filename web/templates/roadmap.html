@@ -14,7 +14,7 @@
       {{range .Tickets}}
       <li class="rm-item">
         <span class="chip">{{.Category}}</span>
-        <p>{{.PublicTitle}}</p>
+        <p>{{if .PublicDetails}}<a class="rm-link" href="/roadmap/{{.ID}}">{{.PublicTitle}}</a>{{else}}{{.PublicTitle}}{{end}}</p>
         <span class="muted small">{{if eq .Status "done"}}shipped {{end}}{{ago .UpdatedAt}}</span>
       </li>
       {{end}}

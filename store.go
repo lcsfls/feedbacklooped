@@ -9,6 +9,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -16,12 +17,18 @@ import (
 )
 
 // Board columns, in display order.
-var Statuses = []struct {
+type StatusDef struct {
 	Key, Label, PublicLabel string
-}{
+}
+
+// DevStatus is the optional "In development" stage between Planned and Done.
+const DevStatus = "development"
+
+var Statuses = []StatusDef{
 	{"inbox", "Inbox", "Received"},
 	{"review", "In review", "In review"},
 	{"planned", "Planned", "Planned"},
+	{DevStatus, "In development", "In development"},
 	{"done", "Done", "Done"},
 	{"rejected", "Declined", "Declined"},
 }
@@ -33,6 +40,20 @@ func validStatus(s string) bool {
 		}
 	}
 	return false
+}
+
+// StatusesFor returns the stages in use. The optional development stage is
+// included when it is switched on, or when keep is in it (so cards that are
+// already there never vanish after it is switched off).
+func (st Settings) StatusesFor(keep string) []StatusDef {
+	var out []StatusDef
+	for _, s := range Statuses {
+		if s.Key == DevStatus && !st.DevStage && keep != DevStatus {
+			continue
+		}
+		out = append(out, s)
+	}
+	return out
 }
 
 func statusLabel(s string) string {
@@ -84,27 +105,32 @@ type Note struct {
 }
 
 type Ticket struct {
-	ID           int          `json:"id"`
-	BoardID      int          `json:"board_id"`
-	Title        string       `json:"title"`
-	Body         string       `json:"body"`
-	Category     string       `json:"category"`
-	Status       string       `json:"status"`
-	Pos          float64      `json:"pos"`
-	Contact      string       `json:"contact,omitempty"`
-	Context      string       `json:"context,omitempty"`  // from a prefilled link or the widget, e.g. "app 1.4"
-	PageURL      string       `json:"page_url,omitempty"` // page the feedback was sent from
-	Labels       []string     `json:"labels,omitempty"`
-	OnRoadmap    bool         `json:"on_roadmap"`
-	RoadmapTitle string       `json:"roadmap_title,omitempty"`
-	Internal     bool         `json:"internal"` // created by the admin, no status link
-	TokenHash    string       `json:"token_hash,omitempty"`
-	Attachments  []Attachment `json:"attachments,omitempty"`
-	Messages     []Message    `json:"messages,omitempty"`
-	Notes        []Note       `json:"notes,omitempty"`
-	UnreadReply  bool         `json:"unread_reply"` // submitter replied, admin hasn't looked yet
-	CreatedAt    time.Time    `json:"created_at"`
-	UpdatedAt    time.Time    `json:"updated_at"`
+	ID           int      `json:"id"`
+	BoardID      int      `json:"board_id"`
+	Title        string   `json:"title"`
+	Body         string   `json:"body"`
+	Category     string   `json:"category"`
+	Status       string   `json:"status"`
+	Pos          float64  `json:"pos"`
+	Contact      string   `json:"contact,omitempty"`
+	Context      string   `json:"context,omitempty"`  // from a prefilled link or the widget, e.g. "app 1.4"
+	PageURL      string   `json:"page_url,omitempty"` // page the feedback was sent from
+	Labels       []string `json:"labels,omitempty"`
+	OnRoadmap    bool     `json:"on_roadmap"`
+	RoadmapTitle string   `json:"roadmap_title,omitempty"`
+	// Public detail page at /roadmap/{id}: description (or PublicBody) and,
+	// only with the submitter's consent (ShareMedia), their screenshots and videos.
+	PublicDetails bool         `json:"public_details,omitempty"`
+	PublicBody    string       `json:"public_body,omitempty"`
+	ShareMedia    bool         `json:"share_media,omitempty"`
+	Internal      bool         `json:"internal"` // created by the admin, no status link
+	TokenHash     string       `json:"token_hash,omitempty"`
+	Attachments   []Attachment `json:"attachments,omitempty"`
+	Messages      []Message    `json:"messages,omitempty"`
+	Notes         []Note       `json:"notes,omitempty"`
+	UnreadReply   bool         `json:"unread_reply"` // submitter replied, admin hasn't looked yet
+	CreatedAt     time.Time    `json:"created_at"`
+	UpdatedAt     time.Time    `json:"updated_at"`
 }
 
 func (t *Ticket) PublicTitle() string {
@@ -112,6 +138,44 @@ func (t *Ticket) PublicTitle() string {
 		return t.RoadmapTitle
 	}
 	return t.Title
+}
+
+// roadmapStatuses are the columns the public roadmap shows.
+var roadmapStatuses = []string{"review", "planned", DevStatus, "done"}
+
+// VisibleOnRoadmap: marked for the roadmap and in a column the roadmap shows.
+func (t *Ticket) VisibleOnRoadmap() bool {
+	return t.OnRoadmap && t.BoardID == PublicBoardID && slices.Contains(roadmapStatuses, t.Status)
+}
+
+// HasPublicPage: the detail page at /roadmap/{id} may be shown (roadmap switched on is checked by the caller).
+func (t *Ticket) HasPublicPage() bool { return t.VisibleOnRoadmap() && t.PublicDetails }
+
+func (t *Ticket) PublicText() string {
+	if strings.TrimSpace(t.PublicBody) != "" {
+		return t.PublicBody
+	}
+	return t.Body
+}
+
+// SharableMedia: screenshots and videos from the original submission (never
+// from the conversation). Whether they may be shown is decided by ShareMedia.
+func (t *Ticket) SharableMedia() []Attachment {
+	var out []Attachment
+	for _, a := range t.Attachments {
+		if a.MessageID == 0 && (a.IsImage() || a.IsVideo()) {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// PublicMedia: what the public detail page shows.
+func (t *Ticket) PublicMedia() []Attachment {
+	if !t.ShareMedia || !t.PublicDetails {
+		return nil
+	}
+	return t.SharableMedia()
 }
 
 func (t *Ticket) AttachmentsFor(messageID int) []Attachment {
@@ -151,6 +215,7 @@ type Settings struct {
 	Categories     []string `json:"categories"`
 	RoadmapEnabled bool     `json:"roadmap_enabled"`
 	RoadmapIntro   string   `json:"roadmap_intro"`
+	DevStage       bool     `json:"dev_stage"` // extra "In development" column after Planned
 	MaxFileMB      int      `json:"max_file_mb"`
 	MaxFiles       int      `json:"max_files"`
 	MaxRecordSec   int      `json:"max_record_sec"`

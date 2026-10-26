@@ -4,17 +4,14 @@
   <p class="eyebrow">Your feedback #{{.T.ID}} · {{.T.Category}} · {{date .T.CreatedAt}}</p>
   <h1>{{.T.Title}}</h1>
 
-  {{$step := stepIndex .T.Status}}
   {{if eq .T.Status "rejected"}}
     <div class="card status-rejected">
       <strong>Declined.</strong> We looked into this and decided not to pursue it. If there is a reason, you will find it in the conversation below.
     </div>
   {{else}}
     <ol class="steps" aria-label="Progress">
-      <li class="{{if ge $step 0}}reached{{end}} {{if eq $step 0}}current{{end}}"><span>Received</span></li>
-      <li class="{{if ge $step 1}}reached{{end}} {{if eq $step 1}}current{{end}}"><span>In review</span></li>
-      <li class="{{if ge $step 2}}reached{{end}} {{if eq $step 2}}current{{end}}"><span>Planned</span></li>
-      <li class="{{if ge $step 3}}reached{{end}} {{if eq $step 3}}current{{end}}"><span>Done</span></li>
+      {{range .Steps}}<li class="{{if .Reached}}reached{{end}}{{if .Current}} current{{end}}"{{if .Current}} aria-current="step"{{end}}><span>{{.Label}}</span></li>
+      {{end}}
     </ol>
   {{end}}
 
@@ -50,6 +47,21 @@
     </div>
     <div class="actions"><button class="btn primary">Send</button></div>
   </form>
+
+  {{if or .T.SharableMedia (and .S.RoadmapEnabled .T.HasPublicPage)}}
+  <div class="card sharing" id="sharing">
+    <h2>Public roadmap</h2>
+    {{if and .S.RoadmapEnabled .T.HasPublicPage}}<p>This feedback is on the public roadmap: <a href="/roadmap/{{.T.ID}}" target="_blank" rel="noopener">see what’s shown</a>. Your contact details and this conversation are never public.</p>
+    {{else}}<p class="muted">If the team puts this feedback on the public roadmap, it may show the title and description there. Your contact details and this conversation are never public.</p>{{end}}
+    {{if .T.SharableMedia}}
+    <form method="post" action="/s/{{.Token}}/share" class="share-form">
+      <label class="check"><input type="checkbox" name="share_media" value="1" {{if .T.ShareMedia}}checked{{end}} data-autosubmit> Allow showing my screenshots and videos there</label>
+      <noscript><button class="btn">Save</button></noscript>
+      <p class="hint">{{if .T.ShareMedia}}Allowed. Switch it off to take them down again at any time.{{else}}Not allowed, so they stay private.{{end}}</p>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
 
   {{if .S.AllowSelfDelete}}
   <form method="post" action="/s/{{.Token}}/delete" class="confirm selfdelete" data-confirm="Delete your feedback, all messages and attachments permanently? This can’t be undone.">

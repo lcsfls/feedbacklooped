@@ -189,19 +189,6 @@ func (a *App) loadTemplates() error {
 			}
 			return m
 		},
-		"stepIndex": func(s string) int {
-			switch s {
-			case "inbox":
-				return 0
-			case "review":
-				return 1
-			case "planned":
-				return 2
-			case "done":
-				return 3
-			}
-			return -1
-		},
 	}
 	pages, err := fs.Glob(templateFS, "web/templates/*.html")
 	if err != nil {
@@ -378,6 +365,8 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /s/{token}", a.handleStatus)
 	mux.HandleFunc("POST /s/{token}/reply", a.handleSubmitterReply)
 	mux.HandleFunc("GET /roadmap", a.handleRoadmap)
+	mux.HandleFunc("GET /roadmap/{id}", a.handleRoadmapItem)
+	mux.HandleFunc("POST /s/{token}/share", a.handleShareMedia)
 	mux.HandleFunc("GET /api/challenge", a.handleChallenge)
 	mux.HandleFunc("GET /widget.js", a.handleWidget)
 	mux.HandleFunc("POST /s/{token}/delete", a.handleSelfDelete)

@@ -5,10 +5,14 @@
 <div class="detail">
   <div class="detail-main">
     <p class="eyebrow">#{{.T.ID}} · {{.T.Category}} · <span id="status-label">{{statusLabel .T.Status}}</span> · received {{datetime .T.CreatedAt}}</p>
+    {{if and .T.VisibleOnRoadmap .S.RoadmapEnabled}}<p class="vis-banner public"><svg class="globe" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c1.8 1.7 2.6 3.7 2.6 6S9.8 12.3 8 14C6.2 12.3 5.4 10.3 5.4 8S6.2 3.7 8 2z"/></svg><span><strong>Public.</strong>
+      {{if .T.PublicDetails}}Title, {{if .T.PublicBody}}public description{{else}}description{{end}}{{if .T.PublicMedia}} and {{len .T.PublicMedia}} screenshot{{if ne (len .T.PublicMedia) 1}}s/videos{{else}}/video{{end}}{{end}} are shown at <a href="/roadmap/{{.T.ID}}" target="_blank" rel="noopener">/roadmap/{{.T.ID}}</a>.
+      {{else}}The title{{if .T.RoadmapTitle}} “{{.T.RoadmapTitle}}”{{end}} is shown on the <a href="/roadmap" target="_blank" rel="noopener">roadmap</a>. Description and attachments stay private.{{end}}
+      The conversation is never public.</span></p>{{end}}
     <h1>{{.T.Title}}</h1>
 
     <div class="track" id="track" data-id="{{.T.ID}}" aria-label="Status: drag the card into a column, or click one">
-      {{range statuses}}
+      {{range .Statuses}}
       <button type="button" class="lane lane-{{.Key}}{{if eq .Key $.T.Status}} current{{end}}" data-status="{{.Key}}" aria-pressed="{{if eq .Key $.T.Status}}true{{else}}false{{end}}">
         <span class="lane-label">{{.Label}}</span>
         {{if eq .Key $.T.Status}}<span class="token" draggable="true" id="token">#{{$.T.ID}}</span>{{end}}
@@ -105,7 +109,21 @@
       <div class="field">
         <label class="check"><input type="checkbox" name="on_roadmap" value="1" {{if .T.OnRoadmap}}checked{{end}}> Show on public roadmap</label>
         <input name="roadmap_title" type="text" value="{{.T.RoadmapTitle}}" maxlength="200" placeholder="Public title (empty = title above)">
-        <p class="hint">Only the title is shown, never the description or attachments. Visible in the In review, Planned and Done columns.</p>
+        <p class="hint">Visible in the In review, Planned{{if .S.DevStage}}, In development{{end}} and Done columns.</p>
+        <div class="public-details" id="public-details">
+          <label class="check"><input type="checkbox" name="public_details" value="1" {{if .T.PublicDetails}}checked{{end}}> Public detail page</label>
+          <textarea name="public_body" rows="4" maxlength="20000" placeholder="Public description (empty = original description)">{{.T.PublicBody}}</textarea>
+          <p class="hint">Anyone with the link can read it. Check the text for names, emails or other personal data first, or write a cleaned-up version here.</p>
+          {{if .T.SharableMedia}}
+            {{if .T.Internal}}
+            <label class="check small"><input type="checkbox" name="share_media" value="1" {{if .T.ShareMedia}}checked{{end}}> Show the screenshots and videos too</label>
+            {{else if .T.ShareMedia}}
+            <p class="consent yes">The submitter allowed showing their {{len .T.SharableMedia}} screenshot{{if ne (len .T.SharableMedia) 1}}s/videos{{else}}/video{{end}}.</p>
+            {{else}}
+            <p class="consent no">Screenshots and videos stay private: the submitter hasn’t allowed sharing them. Only they can change this, on their status page.</p>
+            {{end}}
+          {{end}}
+        </div>
       </div>
       {{end}}
       <div class="actions"><button class="btn primary">Save</button></div>
