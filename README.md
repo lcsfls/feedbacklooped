@@ -8,6 +8,9 @@ A minimal, self-hosted, white-label feedback portal with a kanban board. Let use
 - **Two-way conversation:** your replies show up on the submitter's status page, and they can add details there.
 - **Public roadmap** (optional, titles only).
 - **Notifications** via ntfy, webhook (Slack/Mattermost/n8n compatible) or email.
+- **Multiple admins** with display names, shown next to replies and notes.
+- **Spam protection without third parties:** invisible proof-of-work check (ALTCHA-compatible), honeypot, rate limit.
+- **GDPR-friendly:** no IP addresses stored, no cookies for visitors, everything self-hosted (fonts included), metadata stripped from images, automatic deletion of closed feedback, self-service deletion via the status link, imprint and privacy policy pages with a template.
 - **White-label:** your own logo, wordmark and colors in a few clicks. Light and dark mode follow the system.
 - **One binary, zero dependencies:** Go standard library only. Data is a JSON file plus an uploads folder.
 
@@ -17,9 +20,9 @@ A minimal, self-hosted, white-label feedback portal with a kanban board. Let use
 docker compose up -d --build
 ```
 
-Then open `https://feedback.your-domain.com/admin` and set the admin password. **Do this right after the first start:** until a password is set, anyone can open the setup page. Alternatively, preset the password with `FL_ADMIN_PASSWORD`.
+Then open `https://feedback.your-domain.com/admin` and create the first admin account. **Do this right after the first start:** until an account exists, anyone can open the setup page. Alternatively, preset it with `FL_ADMIN_USER` and `FL_ADMIN_PASSWORD`.
 
-Everything else (name, branding, categories, limits, roadmap, notifications) is configured in the browser under **Settings**.
+Everything else (name, branding, categories, limits, spam protection, data retention, imprint and privacy policy, roadmap, notifications) is configured in the browser under **Settings**; further admins are added under **Users**.
 
 ## White-label
 
@@ -36,6 +39,29 @@ Out of the box the portal uses a neutral look and a built-in mark. Under **Setti
 
 Unchecked colors and an empty logo fall back to the defaults. **Reset branding** restores them all at once. Branding is stored with the other settings in `feedback.json`, the logo in `branding/` next to it, so a backup of the data directory covers it.
 
+## Spam protection
+
+Public forms are protected in three layers, none of which involves a third party:
+
+1. **Proof of work** (on by default): the browser fetches a signed challenge and searches for a number whose SHA-256 hash matches it, in the background, before the visitor hits send. Each challenge expires after 20 minutes and can be used once. The protocol is compatible with [ALTCHA](https://altcha.org), implemented here with the Go standard library. Difficulty is adjustable; JavaScript is required while it is on.
+2. **Honeypot field and minimum fill time** against simple bots.
+3. **Rate limit** per sender (default 10 per hour), based on a salted hash of the IP address held in memory only.
+
+## Data protection (GDPR)
+
+- No IP addresses are written anywhere; the rate-limit key lives in memory for at most an hour.
+- No cookies for visitors. Admins get one session cookie (technically necessary).
+- Fonts, scripts, icons: all served from your server. Nothing is loaded from CDNs or font services. Optionally use the OS font instead.
+- EXIF/XMP/IPTC is stripped from JPEG, PNG and WebP.
+- **Retention:** closed cards (Done/Declined) can be deleted automatically after N days, attachments included.
+- **Right to erasure:** submitters can delete their feedback, messages and attachments through their status link.
+- **Imprint & privacy policy:** link to existing pages or write them in the settings; they are linked in the footer of every page. English and German privacy policy templates describe what the tool does; fill in your details and have them checked.
+- Notifications send the feedback text to the channels you configure (ntfy, webhook, email). Mention them in your privacy policy.
+
+## Admins
+
+Any number of admin accounts, all with the same rights. Each has a username, an optional display name shown next to their replies and notes, and their own password. Submitters see “Team” by default, or “Name · Team” if you enable it. Changing a password logs that user out everywhere else; deleting a user ends their sessions immediately.
+
 ## Environment variables
 
 | Variable | Default | Purpose |
@@ -44,7 +70,9 @@ Unchecked colors and an empty logo fall back to the defaults. **Reset branding**
 | `FL_DATA` | `./data` (`/data` in the container) | Data directory |
 | `FL_TRUST_PROXY` | `false` | Set to `true` behind a reverse proxy to trust `X-Forwarded-For/-Proto/-Host` |
 | `FL_BASE_URL` | – | Public URL, e.g. `https://feedback.example.com` (initial value only, editable in Settings later) |
-| `FL_ADMIN_PASSWORD` | – | Sets the admin password on start if it differs. Doubles as a password reset. |
+| `FL_ADMIN_USER` | `admin` | Username for `FL_ADMIN_PASSWORD` |
+| `FL_ADMIN_PASSWORD` | – | Creates this admin on start, or resets its password if it differs. Doubles as a password reset. |
+| `FL_BIND` | `127.0.0.1:8080` | Published port in `docker-compose.yml` |
 
 ## Reverse proxy
 
@@ -77,21 +105,11 @@ Caddy has no upload size limit by default and writes no access logs unless you a
 
 With Nginx Proxy Manager, put `client_max_body_size 600m;` under *Advanced*.
 
-## Privacy
-
-- **No IP addresses are stored.** Rate limiting uses a salted hash kept in memory only.
-- **EXIF/XMP/IPTC** (GPS, camera, comments) is stripped from JPEG, PNG and WebP without re-encoding. Videos are stored as-is: browser recordings contain no location data, phone videos may.
-- Status links are stored as SHA-256 hashes only.
-- Attachments are only served to the logged-in admin or with the matching status link.
-- Contact details are optional.
-
-Your reverse proxy's access logs are outside this tool. If you promise anonymity, disable or shorten them for this host.
-
 ## Security
 
-- Admin password hashed with PBKDF2-SHA256 (600,000 iterations). Changing it ends all sessions.
+- Passwords hashed with PBKDF2-SHA256 (600,000 iterations), constant-time login for unknown usernames.
 - HMAC-signed session cookie, `HttpOnly`, `SameSite=Strict`, CSRF protection via Origin/`Sec-Fetch-Site`.
-- Login rate limit, honeypot and timestamp against spam bots, max. 10 submissions per hour per sender.
+- Login rate limit per sender; proof-of-work, honeypot, minimum fill time and a configurable submission limit on public forms.
 - Uploads are detected by content, not extension. Allowed: PNG, JPEG, GIF, WebP, MP4, MOV, WebM and TXT/LOG. They are served with `nosniff` and a sandbox CSP.
 - Strict Content Security Policy without inline scripts. The container runs as non-root (distroless).
 
@@ -111,3 +129,7 @@ Requires Go 1.24 or newer. No external modules.
 ## Third-party assets
 
 - Inter Tight and IBM Plex Mono, SIL Open Font License 1.1 (see `web/static/fonts/`). Subsetted to Latin and Latin Extended.
+
+## License
+
+[GNU Affero General Public License v3.0](LICENSE). If you run a modified version as a service, you must make its source available to its users.

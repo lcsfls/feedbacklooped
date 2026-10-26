@@ -27,7 +27,7 @@
       {{range .T.Messages}}
       <li class="msg {{if .FromTeam}}team{{else}}me{{end}}">
         <div class="msg-head">
-          <strong>{{if .FromTeam}}Team{{else}}Submitter{{end}}</strong> <span>{{datetime .CreatedAt}}</span>
+          <strong>{{if .FromTeam}}{{or .Author "Team"}}{{else}}Submitter{{end}}</strong> <span>{{datetime .CreatedAt}}</span>
           <form method="post" action="/admin/t/{{$.T.ID}}/message/{{.ID}}/delete" class="inline confirm" data-confirm="Delete this message and its attachments?"><button class="linklike danger">delete</button></form>
         </div>
         {{if .Body}}<div class="prose">{{.Body}}</div>{{end}}
@@ -53,7 +53,7 @@
     <ol class="notes">
       {{range .T.Notes}}
       <li>
-        <div class="msg-head"><span>{{datetime .CreatedAt}}</span>
+        <div class="msg-head">{{with .Author}}<strong>{{.}}</strong>{{end}}<span>{{datetime .CreatedAt}}</span>
           <form method="post" action="/admin/t/{{$.T.ID}}/note/{{.ID}}/delete" class="inline confirm" data-confirm="Delete note?"><button class="linklike danger">delete</button></form>
         </div>
         <div class="prose">{{.Body}}</div>

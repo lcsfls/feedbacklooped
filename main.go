@@ -31,6 +31,7 @@ type Config struct {
 	DataDir       string
 	TrustProxy    bool
 	AdminPassword string
+	AdminUser     string
 	BaseURL       string
 }
 
@@ -40,6 +41,7 @@ type App struct {
 	tpl         map[string]*template.Template
 	submitLimit *limiter
 	loginLimit  *limiter
+	usedPoW     *usedChallenges
 }
 
 func env(key, def string) string {
@@ -55,6 +57,7 @@ func main() {
 		DataDir:       env("FL_DATA", "./data"),
 		TrustProxy:    env("FL_TRUST_PROXY", "false") == "true",
 		AdminPassword: os.Getenv("FL_ADMIN_PASSWORD"),
+		AdminUser:     normalizeUsername(env("FL_ADMIN_USER", "admin")),
 		BaseURL:       strings.TrimRight(env("FL_BASE_URL", ""), "/"),
 	}
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
@@ -75,6 +78,7 @@ func main() {
 		store:       store,
 		submitLimit: newLimiter(10, time.Hour),
 		loginLimit:  newLimiter(8, 15*time.Minute),
+		usedPoW:     newUsedChallenges(),
 	}
 	if err := app.applyEnv(); err != nil {
 		log.Fatal(err)
@@ -91,8 +95,9 @@ func main() {
 	}
 	go func() {
 		log.Printf("feedbacklooped %s listening on %s (data: %s)", version, cfg.Listen, cfg.DataDir)
-		if store.Settings().AdminHash == "" {
-			log.Printf("No admin password set yet: open /admin to set it up.")
+		go app.retentionLoop()
+		if !store.HasUsers() {
+			log.Printf("No admin account yet: open /admin to set it up.")
 		}
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatal(err)
@@ -111,13 +116,27 @@ func main() {
 // variable doubles as a password reset.
 func (a *App) applyEnv() error {
 	return a.store.Update(func(db *dbFile) error {
-		if a.cfg.AdminPassword != "" && !checkPassword(db.Settings.AdminHash, a.cfg.AdminPassword) {
-			h, err := hashPassword(a.cfg.AdminPassword)
-			if err != nil {
-				return err
+		if a.cfg.AdminPassword != "" {
+			var u *User
+			for _, x := range db.Users {
+				if x.Username == a.cfg.AdminUser {
+					u = x
+				}
 			}
-			db.Settings.AdminHash = h
-			log.Printf("Admin password taken from FL_ADMIN_PASSWORD.")
+			if u == nil || !checkPassword(u.PassHash, a.cfg.AdminPassword) {
+				h, err := hashPassword(a.cfg.AdminPassword)
+				if err != nil {
+					return err
+				}
+				if u == nil {
+					if _, err := addUser(db, a.cfg.AdminUser, "", h); err != nil {
+						return err
+					}
+				} else {
+					u.PassHash = h
+				}
+				log.Printf("Password for admin %q taken from FL_ADMIN_PASSWORD.", a.cfg.AdminUser)
+			}
 		}
 		if a.cfg.BaseURL != "" && db.Settings.BaseURL == "" {
 			db.Settings.BaseURL = a.cfg.BaseURL
@@ -225,7 +244,9 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, status int, name st
 		data = pageData{}
 	}
 	data["S"] = a.store.Settings()
-	data["Admin"] = a.isAdmin(r)
+	me := a.currentUser(r)
+	data["Admin"] = me != nil
+	data["Me"] = me
 	data["Path"] = r.URL.Path
 	data["Version"] = version
 	if msg := r.URL.Query().Get("msg"); msg != "" {
@@ -315,6 +336,10 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /s/{token}", a.handleStatus)
 	mux.HandleFunc("POST /s/{token}/reply", a.handleSubmitterReply)
 	mux.HandleFunc("GET /roadmap", a.handleRoadmap)
+	mux.HandleFunc("GET /api/challenge", a.handleChallenge)
+	mux.HandleFunc("POST /s/{token}/delete", a.handleSelfDelete)
+	mux.HandleFunc("GET /imprint", a.handleLegal("imprint"))
+	mux.HandleFunc("GET /privacy", a.handleLegal("privacy"))
 	mux.HandleFunc("GET /media/{tid}/{aid}", a.handleMedia)
 
 	// Admin
@@ -336,6 +361,11 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /admin/settings", a.admin(a.handleSettingsSave))
 	mux.HandleFunc("POST /admin/settings/test", a.admin(a.handleNotifyTest))
 	mux.HandleFunc("POST /admin/password", a.admin(a.handlePassword))
+	mux.HandleFunc("GET /admin/users", a.admin(a.handleUsers))
+	mux.HandleFunc("POST /admin/users", a.admin(a.handleUserAdd))
+	mux.HandleFunc("POST /admin/users/{id}/delete", a.admin(a.handleUserDelete))
+	mux.HandleFunc("GET /admin/account", a.admin(a.handleAccount))
+	mux.HandleFunc("POST /admin/account", a.admin(a.handleAccountSave))
 	mux.HandleFunc("GET /admin/export", a.admin(a.handleExport))
 	mux.HandleFunc("POST /admin/branding/logo", a.admin(a.handleLogoUpload))
 	mux.HandleFunc("POST /admin/branding/logo/delete", a.admin(a.handleLogoDelete))

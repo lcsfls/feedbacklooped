@@ -15,7 +15,7 @@ var errNotFound = errors.New("not found")
 
 func (a *App) handleAdminHome(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	if a.store.Settings().AdminHash == "" {
+	if !a.store.HasUsers() {
 		a.render(w, r, 200, "setup", nil)
 		return
 	}
@@ -50,26 +50,28 @@ func (a *App) handleSetup(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, 403, "Request from another site rejected.")
 		return
 	}
-	pw, pw2 := r.FormValue("password"), r.FormValue("password2")
-	if utf8Len(pw) < 10 {
-		a.render(w, r, 400, "setup", pageData{"Error": "The password needs at least 10 characters."})
+	again := func(msg string) {
+		a.render(w, r, 400, "setup", pageData{"Error": msg, "NewUsername": r.FormValue("username"), "NewDisplay": r.FormValue("display_name")})
+	}
+	if err := validPassword(r.FormValue("password"), r.FormValue("password2")); err != nil {
+		again(err.Error())
 		return
 	}
-	if pw != pw2 {
-		a.render(w, r, 400, "setup", pageData{"Error": "The passwords do not match."})
-		return
-	}
-	h, err := hashPassword(pw)
+	h, err := hashPassword(r.FormValue("password"))
 	if err != nil {
 		a.fail(w, r, 500, err.Error())
 		return
 	}
 	base := a.baseURL(r)
+	var u *User
 	err = a.store.Update(func(db *dbFile) error {
-		if db.Settings.AdminHash != "" {
+		if len(db.Users) > 0 {
 			return errors.New("already set up")
 		}
-		db.Settings.AdminHash = h
+		var err error
+		if u, err = addUser(db, r.FormValue("username"), r.FormValue("display_name"), h); err != nil {
+			return err
+		}
 		if db.Settings.BaseURL == "" {
 			db.Settings.BaseURL = base
 		}
@@ -79,10 +81,14 @@ func (a *App) handleSetup(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 	if err != nil {
-		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		if a.store.HasUsers() {
+			http.Redirect(w, r, "/admin", http.StatusSeeOther)
+			return
+		}
+		again(err.Error())
 		return
 	}
-	a.setSession(w, r)
+	a.setSession(w, r, u)
 	http.Redirect(w, r, "/admin/settings?msg=saved", http.StatusSeeOther)
 }
 
@@ -97,12 +103,22 @@ func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
 		a.render(w, r, 429, "login", pageData{"Error": "Too many attempts. Please try again in 15 minutes."})
 		return
 	}
-	if !checkPassword(a.store.Settings().AdminHash, r.FormValue("password")) {
+	u := a.store.UserByName(r.FormValue("username"))
+	if u == nil || !checkPassword(u.PassHash, r.FormValue("password")) {
+		if u == nil {
+			checkPassword(dummyHash, r.FormValue("password")) // same timing for unknown users
+		}
 		time.Sleep(700 * time.Millisecond)
-		a.render(w, r, 401, "login", pageData{"Error": "Wrong password."})
+		a.render(w, r, 401, "login", pageData{"Error": "Wrong username or password.", "NewUsername": r.FormValue("username")})
 		return
 	}
-	a.setSession(w, r)
+	a.store.Update(func(db *dbFile) error {
+		if x := findUser(db, u.ID); x != nil {
+			x.LastLoginAt = time.Now()
+		}
+		return nil
+	})
+	a.setSession(w, r, u)
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
 }
 
@@ -247,13 +263,14 @@ func (a *App) handleTeamMessage(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, 400, err.Error())
 		return
 	}
+	author := a.currentUser(r).Name() // outside the lock: currentUser reads the store
 	err = a.store.Update(func(db *dbFile) error {
 		tt := findTicket(db, id)
 		if tt == nil {
 			return errNotFound
 		}
 		mid := tt.nextMessageID()
-		tt.Messages = append(tt.Messages, Message{ID: mid, FromTeam: true, Body: body, CreatedAt: time.Now()})
+		tt.Messages = append(tt.Messages, Message{ID: mid, FromTeam: true, Author: author, Body: body, CreatedAt: time.Now()})
 		for i := range atts {
 			atts[i].MessageID = mid
 		}
@@ -294,13 +311,14 @@ func (a *App) handleMessageDelete(w http.ResponseWriter, r *http.Request) {
 func (a *App) handleNote(w http.ResponseWriter, r *http.Request) {
 	id := pathInt(r, "id")
 	body := cleanText(r.FormValue("body"), 20000)
+	author := a.currentUser(r).Name()
 	if body != "" {
 		a.store.Update(func(db *dbFile) error {
 			t := findTicket(db, id)
 			if t == nil {
 				return errNotFound
 			}
-			t.Notes = append(t.Notes, Note{ID: t.nextNoteID(), Body: body, CreatedAt: time.Now()})
+			t.Notes = append(t.Notes, Note{ID: t.nextNoteID(), Author: author, Body: body, CreatedAt: time.Now()})
 			return nil
 		})
 	}
@@ -404,6 +422,17 @@ func (a *App) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 			s.Categories = cats
 		}
 		s.RoadmapEnabled = r.FormValue("roadmap_enabled") == "1"
+		s.ShowTeamNames = r.FormValue("show_team_names") == "1"
+		s.CaptchaEnabled = r.FormValue("captcha_enabled") == "1"
+		s.CaptchaDifficulty = formInt(r, "captcha_difficulty", s.CaptchaDifficulty, 1000, 1000000)
+		s.RateLimitPerHour = formInt(r, "rate_limit_per_hour", s.RateLimitPerHour, 1, 1000)
+		s.RetentionDays = formInt(r, "retention_days", s.RetentionDays, 0, 3650)
+		s.AllowSelfDelete = r.FormValue("allow_self_delete") == "1"
+		s.SystemFont = r.FormValue("system_font") == "1"
+		s.ImprintURL = cleanURL(r.FormValue("imprint_url"))
+		s.ImprintText = cleanText(r.FormValue("imprint_text"), 20000)
+		s.PrivacyURL = cleanURL(r.FormValue("privacy_url"))
+		s.PrivacyText = cleanText(r.FormValue("privacy_text"), 50000)
 		s.RoadmapIntro = cleanText(r.FormValue("roadmap_intro"), 1000)
 		s.MaxFileMB = formInt(r, "max_file_mb", s.MaxFileMB, 1, 2048)
 		s.MaxFiles = formInt(r, "max_files", s.MaxFiles, 1, 30)
@@ -462,27 +491,6 @@ func (a *App) handleNotifyTest(w http.ResponseWriter, r *http.Request) {
 		res = append(res, "All configured channels were reached successfully.")
 	}
 	a.render(w, r, 200, "settings", pageData{"TestResult": res})
-}
-
-func (a *App) handlePassword(w http.ResponseWriter, r *http.Request) {
-	st := a.store.Settings()
-	if !checkPassword(st.AdminHash, r.FormValue("current")) {
-		a.render(w, r, 400, "settings", pageData{"PwError": "The current password is wrong."})
-		return
-	}
-	pw := r.FormValue("password")
-	if utf8Len(pw) < 10 || pw != r.FormValue("password2") {
-		a.render(w, r, 400, "settings", pageData{"PwError": "New password: at least 10 characters, entered twice identically."})
-		return
-	}
-	h, err := hashPassword(pw)
-	if err != nil {
-		a.fail(w, r, 500, err.Error())
-		return
-	}
-	a.store.Update(func(db *dbFile) error { db.Settings.AdminHash = h; return nil })
-	a.setSession(w, r) // new session with new fingerprint; all others are logged out
-	http.Redirect(w, r, "/admin/settings?msg=pw", http.StatusSeeOther)
 }
 
 // handleExport returns all tickets as JSON (without credentials), e.g. as a backup.

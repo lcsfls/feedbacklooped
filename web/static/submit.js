@@ -168,9 +168,21 @@
   }
 
   // Submit via XHR (for the progress bar)
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
     showError('');
+    sendBtn.disabled = true;
+    if (form.powReady) {
+      sendBtn.textContent = 'Checking …';
+      try {
+        await form.powReady();
+      } catch {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send feedback';
+        showError('The spam check could not be completed. Please reload the page and try again.');
+        return;
+      }
+    }
     const fd = new FormData(form);
     fd.delete('files');
     files.forEach((f) => fd.append('files', f, f.name));

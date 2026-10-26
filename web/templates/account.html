@@ -1,0 +1,32 @@
+{{define "title"}}Your account · {{.S.Title}}{{end}}
+{{define "bodyclass"}}admin{{end}}
+{{define "content"}}
+<section class="narrow wider">
+  <h1>Your account</h1>
+  <div class="card">
+    <h2>Profile</h2>
+    <form method="post" action="/admin/account" class="form">
+      <div class="grid2">
+        <div class="field"><label>Username</label><input type="text" value="{{.Me.Username}}" disabled></div>
+        <div class="field"><label for="dn">Display name</label><input id="dn" name="display_name" type="text" value="{{.Me.DisplayName}}" maxlength="60" placeholder="{{.Me.Username}}"></div>
+      </div>
+      <p class="hint">Shown next to your replies and notes. Submitters only see it if “Show team member names” is on in the settings.</p>
+      <div class="actions"><button class="btn primary">Save</button></div>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Change password</h2>
+    {{if .PwError}}<p class="error">{{.PwError}}</p>{{end}}
+    <form method="post" action="/admin/password" class="form">
+      <input type="text" name="username" value="{{.Me.Username}}" autocomplete="username" hidden>
+      <div class="field"><label for="cur">Current password</label><input id="cur" name="current" type="password" required autocomplete="current-password"></div>
+      <div class="grid2">
+        <div class="field"><label for="np">New password</label><input id="np" name="password" type="password" minlength="10" required autocomplete="new-password"></div>
+        <div class="field"><label for="np2">Repeat</label><input id="np2" name="password2" type="password" minlength="10" required autocomplete="new-password"></div>
+      </div>
+      <p class="hint">Changing the password logs you out everywhere else.</p>
+      <div class="actions"><button class="btn">Change password</button></div>
+    </form>
+  </div>
+</section>
+{{end}}

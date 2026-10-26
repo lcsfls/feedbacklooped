@@ -4,11 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#0F1B2D" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#F6F7F9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
 <title>{{block "title" .}}{{.S.Title}}{{end}}</title>
-<link rel="preload" href="/static/fonts/inter-tight.woff" as="font" type="font/woff" crossorigin>
+{{if not .S.SystemFont}}<link rel="preload" href="/static/fonts/inter-tight.woff" as="font" type="font/woff" crossorigin>{{end}}
 <link rel="stylesheet" href="/static/style.css?v={{.Version}}">
+{{if .S.SystemFont}}<style>:root{--font-sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}</style>{{end}}
 {{with brandCSS .S.Brand}}<style>{{.}}</style>{{end}}
 {{if .S.Brand.LogoFile}}<link rel="icon" href="/brand/logo?v={{.S.Brand.LogoVersion}}" type="{{.S.Brand.LogoMime}}">
 <link rel="apple-touch-icon" href="/brand/logo?v={{.S.Brand.LogoVersion}}">
@@ -28,8 +29,10 @@
       {{if .Admin}}
         <a href="/admin" {{if eq .Path "/admin"}}aria-current="page"{{end}}>Board</a>
         <a href="/admin/settings" {{if eq .Path "/admin/settings"}}aria-current="page"{{end}}>Settings</a>
+        <a href="/admin/users" {{if eq .Path "/admin/users"}}aria-current="page"{{end}}>Users</a>
         <a href="/">Form</a>
         {{if .S.RoadmapEnabled}}<a href="/roadmap">Roadmap</a>{{end}}
+        <a href="/admin/account" class="me" {{if eq .Path "/admin/account"}}aria-current="page"{{end}} title="Your account">{{.Me.Name}}</a>
         <form method="post" action="/admin/logout" class="inline"><button class="linklike">Log out</button></form>
       {{else}}
         <a href="/" {{if eq .Path "/"}}aria-current="page"{{end}}>Give feedback</a>
@@ -42,8 +45,14 @@
 <main>
 {{block "content" .}}{{end}}
 </main>
-{{if not .S.Brand.HidePoweredBy}}<footer class="powered">Powered by <a href="https://github.com/lcsfls/feedbacklooped" rel="noopener">feedbacklooped</a></footer>{{end}}
+{{$imp := or .S.ImprintText .S.ImprintURL}}{{$priv := or .S.PrivacyText .S.PrivacyURL}}
+{{if or $imp $priv (not .S.Brand.HidePoweredBy)}}<footer class="powered">
+  {{if $imp}}<a href="/imprint">Imprint</a>{{end}}
+  {{if $priv}}<a href="/privacy">Privacy</a>{{end}}
+  {{if not .S.Brand.HidePoweredBy}}<span>Powered by <a href="https://github.com/lcsfls/feedbacklooped" rel="noopener">feedbacklooped</a></span>{{end}}
+</footer>{{end}}
 <script src="/static/common.js?v={{.Version}}"></script>
+{{if .S.CaptchaEnabled}}<script src="/static/pow.js?v={{.Version}}"></script>{{end}}
 {{block "scripts" .}}{{end}}
 </body>
 </html>

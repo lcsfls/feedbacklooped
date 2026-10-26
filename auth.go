@@ -64,22 +64,23 @@ func (a *App) verify(msg, sig string) bool {
 	return hmac.Equal([]byte(a.sign(msg)), []byte(sig))
 }
 
-// Session cookie: "<expiry>.<pwfingerprint>.<sig>". The password-hash
-// fingerprint makes a password change invalidate all sessions.
-func (a *App) sessionValue(exp time.Time) string {
-	msg := strconv.FormatInt(exp.Unix(), 10) + "." + a.pwFingerprint()
+// Session cookie: "<uid>.<expiry>.<pwfingerprint>.<sig>". The fingerprint of
+// the user's password hash makes a password change end that user's sessions;
+// deleting the user ends them as well.
+func (a *App) sessionValue(u *User, exp time.Time) string {
+	msg := strconv.Itoa(u.ID) + "." + strconv.FormatInt(exp.Unix(), 10) + "." + pwFingerprint(u.PassHash)
 	return msg + "." + a.sign("session:"+msg)
 }
 
-func (a *App) pwFingerprint() string {
-	h := sha256.Sum256([]byte(a.store.Settings().AdminHash))
+func pwFingerprint(hash string) string {
+	h := sha256.Sum256([]byte(hash))
 	return base64.RawURLEncoding.EncodeToString(h[:8])
 }
 
-func (a *App) setSession(w http.ResponseWriter, r *http.Request) {
+func (a *App) setSession(w http.ResponseWriter, r *http.Request, u *User) {
 	exp := time.Now().Add(sessionTTL)
 	http.SetCookie(w, &http.Cookie{
-		Name: sessionCookie, Value: a.sessionValue(exp), Path: "/",
+		Name: sessionCookie, Value: a.sessionValue(u, exp), Path: "/",
 		Expires: exp, HttpOnly: true, Secure: a.isHTTPS(r), SameSite: http.SameSiteStrictMode,
 	})
 }
@@ -89,28 +90,33 @@ func (a *App) clearSession(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true, Secure: a.isHTTPS(r), SameSite: http.SameSiteStrictMode})
 }
 
-func (a *App) isAdmin(r *http.Request) bool {
-	if a.store.Settings().AdminHash == "" {
-		return false
-	}
+// currentUser returns the logged-in admin, or nil.
+func (a *App) currentUser(r *http.Request) *User {
 	c, err := r.Cookie(sessionCookie)
 	if err != nil {
-		return false
+		return nil
 	}
 	parts := strings.Split(c.Value, ".")
-	if len(parts) != 3 {
-		return false
+	if len(parts) != 4 {
+		return nil
 	}
-	msg := parts[0] + "." + parts[1]
-	if !a.verify("session:"+msg, parts[2]) {
-		return false
+	msg := parts[0] + "." + parts[1] + "." + parts[2]
+	if !a.verify("session:"+msg, parts[3]) {
+		return nil
 	}
-	if parts[1] != a.pwFingerprint() {
-		return false
+	unix, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil || time.Now().Unix() >= unix {
+		return nil
 	}
-	unix, err := strconv.ParseInt(parts[0], 10, 64)
-	return err == nil && time.Now().Unix() < unix
+	id, _ := strconv.Atoi(parts[0])
+	u := a.store.User(id)
+	if u == nil || parts[2] != pwFingerprint(u.PassHash) {
+		return nil
+	}
+	return u
 }
+
+func (a *App) isAdmin(r *http.Request) bool { return a.currentUser(r) != nil }
 
 func (a *App) isHTTPS(r *http.Request) bool {
 	if r.TLS != nil {
@@ -186,7 +192,10 @@ func newLimiter(limit int, window time.Duration) *limiter {
 	return l
 }
 
-func (l *limiter) Allow(key string) bool {
+func (l *limiter) Allow(key string) bool { return l.AllowN(key, l.limit) }
+
+// AllowN applies a limit that may change at runtime (from the settings).
+func (l *limiter) AllowN(key string, limit int) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := time.Now()
@@ -197,7 +206,7 @@ func (l *limiter) Allow(key string) bool {
 		i++
 	}
 	h = h[i:]
-	if len(h) >= l.limit {
+	if len(h) >= limit {
 		l.hits[key] = h
 		return false
 	}

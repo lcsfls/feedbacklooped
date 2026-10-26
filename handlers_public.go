@@ -111,7 +111,11 @@ func (a *App) handleSubmit(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, 400, "Please wait a moment and submit the form again.")
 		return
 	}
-	if !a.submitLimit.Allow(a.clientKey(r)) {
+	if !a.checkPoW(r) {
+		a.fail(w, r, 400, "The spam check failed or expired. Please reload the page and try again (JavaScript is required).")
+		return
+	}
+	if !a.submitLimit.AllowN(a.clientKey(r), max(1, a.store.Settings().RateLimitPerHour)) {
 		a.fail(w, r, 429, "Too many submissions in a short time. Please try again later.")
 		return
 	}
@@ -195,7 +199,11 @@ func (a *App) handleSubmitterReply(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, 400, "Please wait a moment and send the message again.")
 		return
 	}
-	if !a.submitLimit.Allow(a.clientKey(r)) {
+	if !a.checkPoW(r) {
+		a.fail(w, r, 400, "The spam check failed or expired. Please reload the page and try again (JavaScript is required).")
+		return
+	}
+	if !a.submitLimit.AllowN(a.clientKey(r), max(1, a.store.Settings().RateLimitPerHour)) {
 		a.fail(w, r, 429, "Too many messages in a short time. Please try again later.")
 		return
 	}

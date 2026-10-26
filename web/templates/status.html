@@ -28,7 +28,7 @@
   <ol class="thread">
     {{range .T.Messages}}
     <li class="msg {{if .FromTeam}}team{{else}}me{{end}}">
-      <div class="msg-head"><strong>{{if .FromTeam}}Team{{else}}You{{end}}</strong> <span>{{datetime .CreatedAt}}</span></div>
+      <div class="msg-head"><strong>{{if .FromTeam}}{{if and $.S.ShowTeamNames .Author}}{{.Author}} · Team{{else}}Team{{end}}{{else}}You{{end}}</strong> <span>{{datetime .CreatedAt}}</span></div>
       {{if .Body}}<div class="prose">{{.Body}}</div>{{end}}
       {{template "attlist" (dict "Atts" ($.T.AttachmentsFor .ID) "TID" $.T.ID "Q" $.Token)}}
     </li>
@@ -38,7 +38,7 @@
   <p class="muted">No messages yet. As soon as the team replies, it will show up here.</p>
   {{end}}
 
-  <form class="card form" method="post" action="/s/{{.Token}}/reply" enctype="multipart/form-data">
+  <form class="card form" method="post" action="/s/{{.Token}}/reply" enctype="multipart/form-data" {{if .S.CaptchaEnabled}}data-pow{{end}}>
     <input type="hidden" name="stamp" value="{{.Stamp}}">
     <div class="hp" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
     <div class="field">
@@ -51,6 +51,11 @@
     <div class="actions"><button class="btn primary">Send</button></div>
   </form>
 
-  <p class="privacy">This page can only be reached through your private link. Don’t share it unless you want to.</p>
+  {{if .S.AllowSelfDelete}}
+  <form method="post" action="/s/{{.Token}}/delete" class="confirm selfdelete" data-confirm="Delete your feedback, all messages and attachments permanently? This can’t be undone.">
+    <button class="linklike danger">Delete my feedback</button>
+  </form>
+  {{end}}
+  <p class="privacy">This page can only be reached through your private link. Don’t share it unless you want to.{{if .S.RetentionDays}} Closed feedback is deleted automatically after {{.S.RetentionDays}} days.{{end}}</p>
 </section>
 {{end}}

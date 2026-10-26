@@ -4,7 +4,7 @@
   <h1>What did you notice?</h1>
   {{if .S.Intro}}<p class="lead">{{.S.Intro}}</p>{{end}}
 
-  <form id="fb-form" class="card form" method="post" action="/submit" enctype="multipart/form-data"
+  <form id="fb-form" class="card form" method="post" action="/submit" enctype="multipart/form-data" {{if .S.CaptchaEnabled}}data-pow{{end}}
         data-max-files="{{.S.MaxFiles}}" data-max-mb="{{.S.MaxFileMB}}" data-max-sec="{{.S.MaxRecordSec}}">
     <input type="hidden" name="stamp" value="{{.Stamp}}">
     <div class="hp" aria-hidden="true">
@@ -71,7 +71,7 @@
     <p class="actions-inline"><a class="btn ghost" id="status-open" href="#">Open status page</a> <a href="/" class="muted-link">Report something else</a></p>
   </div>
 
-  <p class="privacy">We do not store IP addresses. Location and camera data are removed from images.</p>
+  <p class="privacy">We do not store IP addresses or set cookies. Location and camera data are removed from images.{{if or .S.PrivacyText .S.PrivacyURL}} <a href="/privacy">Privacy policy</a>{{end}}</p>
 </section>
 {{end}}
 {{define "scripts"}}<script src="/static/submit.js?v={{.Version}}"></script>{{end}}

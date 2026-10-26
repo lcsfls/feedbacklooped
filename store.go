@@ -70,6 +70,7 @@ func (a Attachment) IsVideo() bool { return strings.HasPrefix(a.Mime, "video/") 
 type Message struct {
 	ID        int       `json:"id"`
 	FromTeam  bool      `json:"from_team"`
+	Author    string    `json:"author,omitempty"` // admin display name for team messages
 	Body      string    `json:"body"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -77,6 +78,7 @@ type Message struct {
 // Note is internal only.
 type Note struct {
 	ID        int       `json:"id"`
+	Author    string    `json:"author,omitempty"`
 	Body      string    `json:"body"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -162,7 +164,20 @@ type Settings struct {
 
 	Brand Brand `json:"brand"`
 
-	AdminHash string `json:"admin_hash"`
+	ShowTeamNames     bool `json:"show_team_names"`    // status page shows "Anna (Team)" instead of "Team"
+	CaptchaEnabled    bool `json:"captcha_enabled"`    // proof-of-work check on public forms
+	CaptchaDifficulty int  `json:"captcha_difficulty"` // max. number to search; higher = slower
+	RateLimitPerHour  int  `json:"rate_limit_per_hour"`
+	RetentionDays     int  `json:"retention_days"`    // delete Done/Declined cards after N days, 0 = never
+	AllowSelfDelete   bool `json:"allow_self_delete"` // submitters may delete their feedback via the status link
+	SystemFont        bool `json:"system_font"`       // use the OS font instead of the bundled one
+
+	ImprintURL  string `json:"imprint_url"`
+	ImprintText string `json:"imprint_text"`
+	PrivacyURL  string `json:"privacy_url"`
+	PrivacyText string `json:"privacy_text"`
+
+	AdminHash string `json:"admin_hash,omitempty"` // legacy single-admin password, migrated to Users
 	Secret    string `json:"secret"`
 }
 
@@ -178,13 +193,20 @@ func defaultSettings() Settings {
 		MaxRecordSec:   180,
 		SMTPPort:       587,
 		Brand:          defaultBrand(),
+
+		CaptchaEnabled:    true,
+		CaptchaDifficulty: 50000,
+		RateLimitPerHour:  10,
+		AllowSelfDelete:   true,
 	}
 }
 
 type dbFile struct {
-	NextID   int       `json:"next_id"`
-	Tickets  []*Ticket `json:"tickets"`
-	Settings Settings  `json:"settings"`
+	NextID     int       `json:"next_id"`
+	Tickets    []*Ticket `json:"tickets"`
+	NextUserID int       `json:"next_user_id"`
+	Users      []*User   `json:"users"`
+	Settings   Settings  `json:"settings"`
 }
 
 type Store struct {
@@ -214,6 +236,7 @@ func OpenStore(dataDir string) (*Store, error) {
 			s.db.NextID = 1
 		}
 	}
+	migrateUsers(&s.db)
 	if s.db.Settings.Secret == "" {
 		s.db.Settings.Secret = randomToken(32)
 	}

@@ -38,10 +38,10 @@
       </div>
       <h3>Colors</h3>
       <div class="colors">
-        {{template "colorfield" (dict "Key" "primary_light" "Label" "Primary (light mode)" "Hint" "Buttons, links, focus" "Val" .S.Brand.PrimaryLight "Def" "#2b4c9b")}}
-        {{template "colorfield" (dict "Key" "primary_dark" "Label" "Primary (dark mode)" "Hint" "Empty: derived from light" "Val" .S.Brand.PrimaryDark "Def" "#9db4e6")}}
-        {{template "colorfield" (dict "Key" "mark_hold" "Label" "Mark: outline" "Hint" "Built-in mark, light mode" "Val" .S.Brand.MarkHold "Def" "#0f1b2d")}}
-        {{template "colorfield" (dict "Key" "mark_beam" "Label" "Mark: accent" "Hint" "Built-in mark" "Val" .S.Brand.MarkBeam "Def" "#2b4c9b")}}
+        {{template "colorfield" (dict "Key" "primary_light" "Label" "Primary (light mode)" "Hint" "Buttons, links, focus" "Val" .S.Brand.PrimaryLight "Def" "#171717")}}
+        {{template "colorfield" (dict "Key" "primary_dark" "Label" "Primary (dark mode)" "Hint" "Empty: derived from light" "Val" .S.Brand.PrimaryDark "Def" "#e5e5e5")}}
+        {{template "colorfield" (dict "Key" "mark_hold" "Label" "Mark: outline" "Hint" "Built-in mark, light mode" "Val" .S.Brand.MarkHold "Def" "#171717")}}
+        {{template "colorfield" (dict "Key" "mark_beam" "Label" "Mark: accent" "Hint" "Built-in mark" "Val" .S.Brand.MarkBeam "Def" "#999999")}}
       </div>
       <h3>Other</h3>
       <label class="check"><input type="checkbox" name="brand_hide_text" value="1" {{if .S.Brand.HideText}}checked{{end}}> Hide wordmark text (the uploaded logo already contains the name)</label>
@@ -111,6 +111,72 @@
       <p class="hint">Port 587 uses STARTTLS, port 465 uses implicit TLS.</p>
     </div>
 
+    <div class="card">
+      <h2>Team</h2>
+      <label class="check"><input type="checkbox" name="show_team_names" value="1" {{if .S.ShowTeamNames}}checked{{end}}> Show team member names to submitters</label>
+      <p class="hint">Off: replies are signed “Team”. On: “Alex · Team”. In the admin area names are always shown.</p>
+    </div>
+
+    <div class="card">
+      <h2>Spam protection</h2>
+      <label class="check"><input type="checkbox" name="captcha_enabled" value="1" {{if .S.CaptchaEnabled}}checked{{end}}> Proof-of-work check on the public forms</label>
+      <p class="hint">The visitor’s browser solves a small calculation in the background: no puzzle, no cookies, no third party. Requires JavaScript. Compatible with the ALTCHA protocol.</p>
+      <div class="grid2" style="margin-top:14px">
+        <div class="field">
+          <label for="cd">Difficulty</label>
+          <select id="cd" name="captcha_difficulty">
+            <option value="20000" {{if eq .S.CaptchaDifficulty 20000}}selected{{end}}>Low (≈ 0.2 s)</option>
+            <option value="50000" {{if eq .S.CaptchaDifficulty 50000}}selected{{end}}>Medium (≈ 0.5 s)</option>
+            <option value="150000" {{if eq .S.CaptchaDifficulty 150000}}selected{{end}}>High (≈ 1.5 s)</option>
+            <option value="400000" {{if eq .S.CaptchaDifficulty 400000}}selected{{end}}>Very high (≈ 4 s)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="rl">Max. submissions per hour <span class="opt">(per sender)</span></label>
+          <input id="rl" name="rate_limit_per_hour" type="number" min="1" max="1000" value="{{.S.RateLimitPerHour}}">
+        </div>
+      </div>
+      <p class="hint">Times are averages on a current laptop; phones take about twice as long. Senders are told apart by a salted hash of their IP address that is kept in memory only.</p>
+    </div>
+
+    <div class="card">
+      <h2>Data protection</h2>
+      <div class="field">
+        <label for="rd">Delete closed cards after <span class="opt">(days, 0 = never)</span></label>
+        <input id="rd" name="retention_days" type="number" min="0" max="3650" value="{{.S.RetentionDays}}" style="max-width:160px">
+        <p class="hint">Cards in Done or Declined are deleted with all messages and attachments once they haven’t changed for this many days. Checked hourly.</p>
+      </div>
+      <label class="check"><input type="checkbox" name="allow_self_delete" value="1" {{if .S.AllowSelfDelete}}checked{{end}}> Submitters can delete their feedback through their status link</label>
+      <label class="check"><input type="checkbox" name="system_font" value="1" {{if .S.SystemFont}}checked{{end}}> Use the operating system font instead of the bundled one</label>
+      <p class="hint">Fonts, scripts and icons are always served from this server. Nothing is loaded from third parties, no cookies are set for visitors.</p>
+    </div>
+
+    <div class="card" id="legal">
+      <h2>Imprint &amp; privacy policy</h2>
+      <p class="hint" style="margin-top:-4px;margin-bottom:14px">Linked in the footer of every page. Use either a link to an existing page or your own text (text wins if both are set).</p>
+      <div class="field">
+        <label for="iu">Imprint URL</label>
+        <input id="iu" name="imprint_url" type="url" value="{{.S.ImprintURL}}" placeholder="https://example.com/imprint">
+      </div>
+      <div class="field">
+        <label for="it">Imprint text</label>
+        <textarea id="it" name="imprint_text" rows="5" placeholder="Company, address, representative, contact, register entry, VAT ID …">{{.S.ImprintText}}</textarea>
+      </div>
+      <div class="field">
+        <label for="pu">Privacy policy URL</label>
+        <input id="pu" name="privacy_url" type="url" value="{{.S.PrivacyURL}}" placeholder="https://example.com/privacy">
+      </div>
+      <div class="field">
+        <label for="pt">Privacy policy text</label>
+        <textarea id="pt" name="privacy_text" rows="8">{{.S.PrivacyText}}</textarea>
+        <div class="actions" style="margin-top:8px">
+          <button type="button" class="btn" data-template="privacy-en" data-target="pt">Insert template (EN)</button>
+          <button type="button" class="btn" data-template="privacy-de" data-target="pt">Vorlage einfügen (DE)</button>
+        </div>
+        <p class="hint">The templates describe what this tool does with data. Fill in the placeholders, add your notification channels, and have it checked – this is not legal advice.</p>
+      </div>
+    </div>
+
     <div class="actions sticky"><button class="btn primary">Save settings</button></div>
   </form>
 
@@ -143,24 +209,60 @@
   </div>
 
   <div class="card">
-    <h2>Change admin password</h2>
-    {{if .PwError}}<p class="error">{{.PwError}}</p>{{end}}
-    <form method="post" action="/admin/password" class="form">
-      <div class="field"><label for="cur">Current password</label><input id="cur" name="current" type="password" required autocomplete="current-password"></div>
-      <div class="grid2">
-        <div class="field"><label for="np">New password</label><input id="np" name="password" type="password" minlength="10" required autocomplete="new-password"></div>
-        <div class="field"><label for="np2">Repeat</label><input id="np2" name="password2" type="password" minlength="10" required autocomplete="new-password"></div>
-      </div>
-      <div class="actions"><button class="btn">Change password</button></div>
-    </form>
-  </div>
-
-  <div class="card">
     <h2>Data</h2>
     <p><a class="btn ghost" href="/admin/export">Export all cards as JSON</a></p>
     <p class="hint">For a full backup, back up the data directory (<code>feedback.json</code> and <code>uploads/</code>).</p>
   </div>
 </section>
+
+<template id="privacy-en">Privacy policy for this feedback portal
+
+1. Controller
+[Company name, address, email]
+
+2. What we process
+When you submit feedback, we store the text you enter, the category, any files you attach (screenshots, screen recordings, log files) and, only if you fill it in, your contact details. Metadata such as location and camera data is removed from images before they are stored.
+We do not store IP addresses. To limit abuse, a salted hash of your IP address is kept in memory for up to one hour and never written to disk. No cookies are set for visitors, and no fonts, scripts or other content are loaded from third parties.
+A spam check runs in your browser (a short calculation, no data is sent to anyone).
+
+3. Purpose and legal basis
+We use your feedback to fix bugs and improve our product (legitimate interest, Art. 6(1)(f) GDPR). If you leave contact details, we use them only to ask questions about your feedback (consent, Art. 6(1)(a) GDPR, which you can withdraw at any time).
+
+4. Private status link
+After submitting you receive a private link. Anyone with this link can read your feedback and the replies, so keep it to yourself. Through the link you can add information and delete your feedback at any time.
+
+5. Retention
+Feedback is kept until it has been dealt with. [Closed feedback is deleted automatically after X days.] You can delete it yourself at any time through your status link.
+
+6. Recipients
+Data is stored on our own server at [hosting provider, location]. [Notifications about new feedback are sent via: e.g. ntfy, email provider, chat tool.]
+
+7. Your rights
+You have the right to access, rectification, erasure, restriction of processing, data portability and objection, and the right to lodge a complaint with a supervisory authority. Contact: [email].</template>
+<template id="privacy-de">Datenschutzhinweise für dieses Feedback-Portal
+
+1. Verantwortlicher
+[Firma, Anschrift, E-Mail]
+
+2. Welche Daten wir verarbeiten
+Wenn du Feedback sendest, speichern wir den eingegebenen Text, die Kategorie, angehängte Dateien (Screenshots, Bildschirmaufnahmen, Log-Dateien) und, nur wenn du sie angibst, deine Kontaktdaten. Metadaten wie Standort- und Kameradaten werden vor dem Speichern aus Bildern entfernt.
+Wir speichern keine IP-Adressen. Zum Schutz vor Missbrauch wird ein gesalzener Hash deiner IP-Adresse höchstens eine Stunde im Arbeitsspeicher gehalten und nie auf die Festplatte geschrieben. Für Besucher werden keine Cookies gesetzt, und es werden keine Schriften, Skripte oder sonstigen Inhalte von Dritten geladen.
+Eine Spam-Prüfung läuft in deinem Browser (eine kurze Rechenaufgabe, dabei werden keine Daten an Dritte übertragen).
+
+3. Zweck und Rechtsgrundlage
+Wir nutzen dein Feedback, um Fehler zu beheben und unser Produkt zu verbessern (berechtigtes Interesse, Art. 6 Abs. 1 lit. f DSGVO). Wenn du Kontaktdaten angibst, nutzen wir sie nur für Rückfragen zu deinem Feedback (Einwilligung, Art. 6 Abs. 1 lit. a DSGVO, jederzeit widerrufbar).
+
+4. Privater Status-Link
+Nach dem Absenden erhältst du einen privaten Link. Wer diesen Link kennt, kann dein Feedback und die Antworten lesen, gib ihn also nicht weiter. Über den Link kannst du Informationen ergänzen und dein Feedback jederzeit löschen.
+
+5. Speicherdauer
+Feedback wird gespeichert, bis es bearbeitet ist. [Abgeschlossenes Feedback wird nach X Tagen automatisch gelöscht.] Du kannst es jederzeit selbst über deinen Status-Link löschen.
+
+6. Empfänger
+Die Daten liegen auf unserem eigenen Server bei [Hoster, Standort]. [Benachrichtigungen über neues Feedback werden versendet über: z. B. ntfy, E-Mail-Anbieter, Chat-Tool.]
+
+7. Deine Rechte
+Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch sowie das Recht auf Beschwerde bei einer Aufsichtsbehörde. Kontakt: [E-Mail].</template>
 {{end}}
 
 {{define "colorfield"}}

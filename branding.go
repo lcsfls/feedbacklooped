@@ -44,7 +44,7 @@ func foregroundFor(hex string) string {
 	b, _ := strconv.ParseUint(hex[5:7], 16, 8)
 	lum := (0.2126*float64(r) + 0.7152*float64(g) + 0.0722*float64(b)) / 255
 	if lum > 0.6 {
-		return "oklch(0.221 0.039 258.275)"
+		return "oklch(0.205 0 0)"
 	}
 	return "#ffffff"
 }
@@ -59,7 +59,7 @@ func brandCSS(b Brand) template.CSS {
 		primary(&light, b.PrimaryLight, foregroundFor(b.PrimaryLight))
 		if !hexColor.MatchString(b.PrimaryDark) {
 			// Lighten for dark backgrounds.
-			primary(&dark, "color-mix(in oklch, "+b.PrimaryLight+" 55%, white)", "oklch(0.221 0.039 258.275)")
+			primary(&dark, "color-mix(in srgb, "+b.PrimaryLight+" 55%, white)", "oklch(0.205 0 0)")
 		}
 	}
 	if hexColor.MatchString(b.PrimaryDark) {
