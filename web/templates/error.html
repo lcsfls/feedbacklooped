@@ -1,0 +1,10 @@
+{{define "title"}}{{.Title}} · {{.S.Title}}{{end}}
+{{define "content"}}
+<section class="narrow">
+  <div class="card">
+    <h1>{{.Title}}</h1>
+    <p>{{.Message}}</p>
+    <p><a class="btn ghost" href="{{if .Admin}}/admin{{else}}/{{end}}">Back to start</a></p>
+  </div>
+</section>
+{{end}}

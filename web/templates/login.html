@@ -1,0 +1,17 @@
+{{define "title"}}Log in · {{.S.Title}}{{end}}
+{{define "content"}}
+<section class="narrow tight">
+  <div class="card form">
+    <h1>Log in</h1>
+    {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+    <form method="post" action="/admin/login">
+      <input type="text" name="username" value="admin" autocomplete="username" hidden>
+      <div class="field">
+        <label for="pw">Admin password</label>
+        <input id="pw" name="password" type="password" required autofocus autocomplete="current-password">
+      </div>
+      <div class="actions"><button class="btn primary">Log in</button></div>
+    </form>
+  </div>
+</section>
+{{end}}

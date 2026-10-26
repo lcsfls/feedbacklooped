@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0F1B2D" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F6F7F9" media="(prefers-color-scheme: light)">
+<title>{{block "title" .}}{{.S.Title}}{{end}}</title>
+<link rel="preload" href="/static/fonts/inter-tight.woff" as="font" type="font/woff" crossorigin>
+<link rel="stylesheet" href="/static/style.css?v={{.Version}}">
+{{with brandCSS .S.Brand}}<style>{{.}}</style>{{end}}
+{{if .S.Brand.LogoFile}}<link rel="icon" href="/brand/logo?v={{.S.Brand.LogoVersion}}" type="{{.S.Brand.LogoMime}}">
+<link rel="apple-touch-icon" href="/brand/logo?v={{.S.Brand.LogoVersion}}">
+{{else}}<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">{{end}}
+</head>
+<body class="{{block "bodyclass" .}}{{end}}">
+<header class="top">
+  <div class="top-inner">
+    <a class="brand" href="{{if .Admin}}/admin{{else}}/{{end}}" aria-label="{{.S.Title}}">
+      {{if .S.Brand.LogoFile}}<img class="logo{{if .S.Brand.HideText}} logo-wide{{end}}" src="/brand/logo?v={{.S.Brand.LogoVersion}}" alt="">
+      {{else}}<svg class="mark" viewBox="0 0 48 48" aria-hidden="true"><path class="hold" d="M14 9 h20 a8 8 0 0 1 8 8 v10 a8 8 0 0 1 -8 8 h-12 l-9 6 v-6.5 a8 8 0 0 1 -7 -7.5 v-10 a8 8 0 0 1 8 -8 z"/><rect class="beam" x="15" y="19.5" width="18" height="6" rx="2"/></svg>{{end}}
+      {{if and .S.Brand.Name (not .S.Brand.HideText)}}<span class="wordmark" aria-hidden="true"><span class="wm-name">{{.S.Brand.Name}}</span>{{with .S.Brand.Tag}}<span class="wm-tag">{{.}}</span>{{end}}</span>{{end}}
+    </a>
+    <nav>
+      {{if .Admin}}
+        <a href="/admin" {{if eq .Path "/admin"}}aria-current="page"{{end}}>Board</a>
+        <a href="/admin/settings" {{if eq .Path "/admin/settings"}}aria-current="page"{{end}}>Settings</a>
+        <a href="/">Form</a>
+        {{if .S.RoadmapEnabled}}<a href="/roadmap">Roadmap</a>{{end}}
+        <form method="post" action="/admin/logout" class="inline"><button class="linklike">Log out</button></form>
+      {{else}}
+        <a href="/" {{if eq .Path "/"}}aria-current="page"{{end}}>Give feedback</a>
+        {{if .S.RoadmapEnabled}}<a href="/roadmap" {{if eq .Path "/roadmap"}}aria-current="page"{{end}}>Roadmap</a>{{end}}
+      {{end}}
+    </nav>
+  </div>
+</header>
+{{if .Flash}}<div class="flash" role="status">{{.Flash}}</div>{{end}}
+<main>
+{{block "content" .}}{{end}}
+</main>
+{{if not .S.Brand.HidePoweredBy}}<footer class="powered">Powered by <a href="https://github.com/lcsfls/feedbacklooped" rel="noopener">feedbacklooped</a></footer>{{end}}
+<script src="/static/common.js?v={{.Version}}"></script>
+{{block "scripts" .}}{{end}}
+</body>
+</html>
+{{define "attlist"}}
+{{if .Atts}}
+<ul class="atts">
+  {{range .Atts}}
+  <li class="att">
+    {{if .IsImage}}
+      <a href="/media/{{$.TID}}/{{.ID}}{{if $.Q}}?t={{$.Q}}{{end}}" target="_blank" rel="noopener"><img src="/media/{{$.TID}}/{{.ID}}{{if $.Q}}?t={{$.Q}}{{end}}" alt="{{.Name}}" loading="lazy"></a>
+    {{else if .IsVideo}}
+      <video src="/media/{{$.TID}}/{{.ID}}{{if $.Q}}?t={{$.Q}}{{end}}" controls preload="metadata"></video>
+    {{else}}
+      <a class="fileicon" href="/media/{{$.TID}}/{{.ID}}{{if $.Q}}?t={{$.Q}}{{end}}">📄</a>
+    {{end}}
+    <div class="att-meta">
+      <a href="/media/{{$.TID}}/{{.ID}}?dl=1{{if $.Q}}&t={{$.Q}}{{end}}" title="Download">{{.Name}}</a>
+      <span>{{size .Size}}</span>
+      {{if $.Del}}<form method="post" action="/admin/t/{{$.TID}}/attachment/{{.ID}}/delete" class="inline confirm" data-confirm="Delete attachment?"><button class="linklike danger">delete</button></form>{{end}}
+    </div>
+  </li>
+  {{end}}
+</ul>
+{{end}}
+{{end}}

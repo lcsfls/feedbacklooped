@@ -1,0 +1,29 @@
+{{define "title"}}Roadmap · {{.S.Title}}{{end}}
+{{define "bodyclass"}}wide{{end}}
+{{define "content"}}
+<section class="page-head">
+  <h1>Roadmap</h1>
+  {{if .S.RoadmapIntro}}<p class="lead">{{.S.RoadmapIntro}}</p>{{end}}
+</section>
+<section class="roadmap">
+  {{range .Cols}}
+  <div class="rm-col rm-{{.Key}}">
+    <h2>{{.Label}} <span class="count">{{len .Tickets}}</span></h2>
+    {{if .Tickets}}
+    <ul>
+      {{range .Tickets}}
+      <li class="rm-item">
+        <span class="chip">{{.Category}}</span>
+        <p>{{.PublicTitle}}</p>
+        <span class="muted small">{{if eq .Status "done"}}shipped {{end}}{{ago .UpdatedAt}}</span>
+      </li>
+      {{end}}
+    </ul>
+    {{else}}
+    <p class="muted small">Nothing right now.</p>
+    {{end}}
+  </div>
+  {{end}}
+</section>
+<p class="center"><a class="btn primary" href="/">Give your own feedback</a></p>
+{{end}}

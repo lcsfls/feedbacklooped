@@ -1,0 +1,13 @@
+{{define "title"}}Thanks · {{.S.Title}}{{end}}
+{{define "content"}}
+<section class="narrow">
+  <div class="card done">
+    <h2>Thanks, we got it.</h2>
+    <p>Use this private link to follow what happens with your feedback and to add more later. <strong>Save it now, it is only shown once.</strong></p>
+    <div class="copyline">
+      <input type="text" value="{{.StatusURL}}" readonly>
+    </div>
+    <p class="actions-inline"><a class="btn ghost" href="{{.StatusURL}}">Open status page</a> <a href="/" class="muted-link">Report something else</a></p>
+  </div>
+</section>
+{{end}}

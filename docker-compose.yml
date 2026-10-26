@@ -1,0 +1,22 @@
+services:
+  feedbacklooped:
+    build: .
+    # image: ghcr.io/lcsfls/feedbacklooped:latest
+    container_name: feedbacklooped
+    restart: unless-stopped
+    ports:
+      # Local only, your reverse proxy sits in front. If the proxy itself runs
+      # in Docker, bind to the bridge gateway instead, e.g. FL_BIND=172.17.0.1:8085
+      - "${FL_BIND:-127.0.0.1:8080}:8080"
+    volumes:
+      # Named volume: permissions just work (the container does not run as root).
+      - feedback-data:/data
+    environment:
+      FL_TRUST_PROXY: "true"     # trust X-Forwarded-* headers from the reverse proxy
+      FL_BASE_URL: "https://feedback.example.com"
+      # Optional: preset the admin password (otherwise set it up in the browser at /admin).
+      # Also works as a password reset.
+      # FL_ADMIN_PASSWORD: "change-me-at-least-10-chars"
+
+volumes:
+  feedback-data:

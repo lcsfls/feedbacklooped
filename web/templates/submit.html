@@ -1,0 +1,77 @@
+{{define "title"}}{{.S.Title}}{{end}}
+{{define "content"}}
+<section class="narrow">
+  <h1>What did you notice?</h1>
+  {{if .S.Intro}}<p class="lead">{{.S.Intro}}</p>{{end}}
+
+  <form id="fb-form" class="card form" method="post" action="/submit" enctype="multipart/form-data"
+        data-max-files="{{.S.MaxFiles}}" data-max-mb="{{.S.MaxFileMB}}" data-max-sec="{{.S.MaxRecordSec}}">
+    <input type="hidden" name="stamp" value="{{.Stamp}}">
+    <div class="hp" aria-hidden="true">
+      <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+    </div>
+
+    {{if .S.Categories}}
+    <fieldset class="field">
+      <legend>What is it about?</legend>
+      <div class="segmented">
+        {{range $i, $c := .S.Categories}}
+        <label><input type="radio" name="category" value="{{$c}}" {{if eq $i 0}}checked{{end}}><span>{{$c}}</span></label>
+        {{end}}
+      </div>
+    </fieldset>
+    {{end}}
+
+    <div class="field">
+      <label for="title">Short summary</label>
+      <input id="title" name="title" type="text" maxlength="200" required placeholder="e.g. Export stops halfway through">
+    </div>
+
+    <div class="field">
+      <label for="body">What happened? <span class="opt">(optional, but helpful)</span></label>
+      <textarea id="body" name="body" rows="7" maxlength="20000" placeholder="What did you do, what did you expect, and what happened instead?"></textarea>
+    </div>
+
+    <div class="field">
+      <span class="label">Screenshots, videos or logs <span class="opt">(optional)</span></span>
+      <label class="drop" id="drop">
+        <input type="file" name="files" id="files" multiple accept="image/*,video/*,.txt,.log">
+        <span class="drop-main">Drop files here or <u>browse</u></span>
+        <span class="drop-sub">Paste a screenshot from the clipboard with <kbd>Ctrl</kbd>+<kbd>V</kbd> · up to {{.S.MaxFiles}} files, {{.S.MaxFileMB}} MB each</span>
+      </label>
+      <div class="rec-row" id="rec-row" hidden>
+        <button type="button" class="btn ghost" id="rec-btn">
+          <span class="dot" aria-hidden="true"></span><span id="rec-label">Record screen</span>
+        </button>
+        <span class="rec-hint" id="rec-hint">Records a tab, a window or your whole screen, max. {{.S.MaxRecordSec}} s. No audio.</span>
+      </div>
+      <ul class="filelist" id="filelist"></ul>
+    </div>
+
+    <details class="field contact">
+      <summary>Okay to contact you? <span class="opt">(optional)</span></summary>
+      <p class="hint">By default you stay anonymous and follow progress through a private link. If we may reach out to you directly, leave a contact here.</p>
+      <input name="contact" type="text" maxlength="200" placeholder="Name, email or phone">
+    </details>
+
+    <div class="actions">
+      <button class="btn primary" type="submit" id="send">Send feedback</button>
+      <div class="progress" id="progress" hidden><div class="bar" id="bar"></div></div>
+      <p class="error" id="err" role="alert" hidden></p>
+    </div>
+  </form>
+
+  <div class="card done" id="done" hidden>
+    <h2>Thanks, we got it.</h2>
+    <p>Use this private link to follow what happens with your feedback and to add more later. <strong>Save it now, it is only shown once.</strong></p>
+    <div class="copyline">
+      <input type="text" id="status-url" readonly>
+      <button class="btn" type="button" id="copy">Copy</button>
+    </div>
+    <p class="actions-inline"><a class="btn ghost" id="status-open" href="#">Open status page</a> <a href="/" class="muted-link">Report something else</a></p>
+  </div>
+
+  <p class="privacy">We do not store IP addresses. Location and camera data are removed from images.</p>
+</section>
+{{end}}
+{{define "scripts"}}<script src="/static/submit.js?v={{.Version}}"></script>{{end}}

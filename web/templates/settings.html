@@ -1,0 +1,171 @@
+{{define "title"}}Settings · {{.S.Title}}{{end}}
+{{define "bodyclass"}}admin{{end}}
+{{define "content"}}
+<section class="narrow wider">
+  <h1>Settings</h1>
+
+  <form method="post" action="/admin/settings" class="form" id="sform">
+    <div class="card">
+      <h2>General</h2>
+      <div class="field">
+        <label for="title">Name</label>
+        <input id="title" name="title" type="text" value="{{.S.Title}}" maxlength="80">
+        <p class="hint">Used as page title in the browser tab and in notifications.</p>
+      </div>
+      <div class="field">
+        <label for="intro">Intro text above the form</label>
+        <textarea id="intro" name="intro" rows="3">{{.S.Intro}}</textarea>
+      </div>
+      <div class="field">
+        <label for="base">Public URL</label>
+        <input id="base" name="base_url" type="url" value="{{.S.BaseURL}}" placeholder="https://feedback.example.com">
+        <p class="hint">Used for status links and for links in notifications.</p>
+      </div>
+    </div>
+
+    <div class="card" id="branding">
+      <h2>Branding</h2>
+      <p class="hint" style="margin-top:-4px;margin-bottom:16px">White-label: replace the default look with your own. Empty or unchecked values fall back to the defaults.</p>
+      <div class="grid2">
+        <div class="field">
+          <label for="bn">Wordmark</label>
+          <input id="bn" name="brand_name" type="text" value="{{.S.Brand.Name}}" maxlength="40" placeholder="acme">
+        </div>
+        <div class="field">
+          <label for="bt">Tag <span class="opt">(optional, shown in mono)</span></label>
+          <input id="bt" name="brand_tag" type="text" value="{{.S.Brand.Tag}}" maxlength="40" placeholder="support">
+        </div>
+      </div>
+      <h3>Colors</h3>
+      <div class="colors">
+        {{template "colorfield" (dict "Key" "primary_light" "Label" "Primary (light mode)" "Hint" "Buttons, links, focus" "Val" .S.Brand.PrimaryLight "Def" "#2b4c9b")}}
+        {{template "colorfield" (dict "Key" "primary_dark" "Label" "Primary (dark mode)" "Hint" "Empty: derived from light" "Val" .S.Brand.PrimaryDark "Def" "#9db4e6")}}
+        {{template "colorfield" (dict "Key" "mark_hold" "Label" "Mark: outline" "Hint" "Built-in mark, light mode" "Val" .S.Brand.MarkHold "Def" "#0f1b2d")}}
+        {{template "colorfield" (dict "Key" "mark_beam" "Label" "Mark: accent" "Hint" "Built-in mark" "Val" .S.Brand.MarkBeam "Def" "#2b4c9b")}}
+      </div>
+      <h3>Other</h3>
+      <label class="check"><input type="checkbox" name="brand_hide_text" value="1" {{if .S.Brand.HideText}}checked{{end}}> Hide wordmark text (the uploaded logo already contains the name)</label>
+      <label class="check"><input type="checkbox" name="hide_powered_by" value="1" {{if .S.Brand.HidePoweredBy}}checked{{end}}> Hide “Powered by feedbacklooped” footer</label>
+    </div>
+
+    <div class="card">
+      <h2>Form</h2>
+      <div class="field">
+        <label for="cats">Categories <span class="opt">(one per line)</span></label>
+        <textarea id="cats" name="categories" rows="4">{{join .S.Categories "\n"}}</textarea>
+      </div>
+      <div class="grid3">
+        <div class="field"><label for="mf">Max. files</label><input id="mf" name="max_files" type="number" min="1" max="30" value="{{.S.MaxFiles}}"></div>
+        <div class="field"><label for="mb">Max. MB per file</label><input id="mb" name="max_file_mb" type="number" min="1" max="2048" value="{{.S.MaxFileMB}}"></div>
+        <div class="field"><label for="rs">Max. recording (s)</label><input id="rs" name="max_record_sec" type="number" min="10" max="1800" value="{{.S.MaxRecordSec}}"></div>
+      </div>
+      <p class="hint">Make sure your reverse proxy accepts uploads of this size (e.g. <code>client_max_body_size</code> in nginx).</p>
+    </div>
+
+    <div class="card">
+      <h2>Roadmap</h2>
+      <label class="check"><input type="checkbox" name="roadmap_enabled" value="1" {{if .S.RoadmapEnabled}}checked{{end}}> Show public roadmap at <code>/roadmap</code></label>
+      <div class="field">
+        <label for="ri">Intro text</label>
+        <input id="ri" name="roadmap_intro" type="text" value="{{.S.RoadmapIntro}}">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Notifications</h2>
+      <p class="hint">Sent for new submissions and for replies from submitters. All channels are optional and can be combined.</p>
+      <h3>ntfy</h3>
+      <div class="grid2">
+        <div class="field">
+          <label for="ntfy">Topic URL</label>
+          <input id="ntfy" name="ntfy_url" type="url" value="{{.S.NtfyURL}}" placeholder="https://ntfy.sh/my-secret-topic">
+        </div>
+        <div class="field">
+          <label for="ntok">Access token <span class="opt">{{if .S.NtfyToken}}(set){{else}}(optional){{end}}</span></label>
+          <input id="ntok" name="ntfy_token" type="password" autocomplete="off" placeholder="{{if .S.NtfyToken}}leave empty to keep{{end}}">
+          {{if .S.NtfyToken}}<label class="check small"><input type="checkbox" name="ntfy_token_clear" value="1"> Remove token</label>{{end}}
+        </div>
+      </div>
+      <h3>Webhook</h3>
+      <div class="field">
+        <label for="wh">URL <span class="opt">(JSON POST, works with Slack, Mattermost, Rocket.Chat, n8n …)</span></label>
+        <input id="wh" name="webhook_url" type="url" value="{{.S.WebhookURL}}" placeholder="https://…">
+      </div>
+      <h3>Email</h3>
+      <div class="grid3">
+        <div class="field span2"><label for="sh">SMTP server</label><input id="sh" name="smtp_host" type="text" value="{{.S.SMTPHost}}" placeholder="smtp.office365.com"></div>
+        <div class="field"><label for="sp">Port</label><input id="sp" name="smtp_port" type="number" value="{{.S.SMTPPort}}"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="su">Username</label><input id="su" name="smtp_user" type="text" value="{{.S.SMTPUser}}" autocomplete="off"></div>
+        <div class="field">
+          <label for="spw">Password <span class="opt">{{if .S.SMTPPass}}(set){{end}}</span></label>
+          <input id="spw" name="smtp_pass" type="password" autocomplete="new-password" placeholder="{{if .S.SMTPPass}}leave empty to keep{{end}}">
+          {{if .S.SMTPPass}}<label class="check small"><input type="checkbox" name="smtp_pass_clear" value="1"> Remove password</label>{{end}}
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="sf">From</label><input id="sf" name="smtp_from" type="text" value="{{.S.SMTPFrom}}" placeholder="feedback@example.com"></div>
+        <div class="field"><label for="st">To <span class="opt">(comma-separated)</span></label><input id="st" name="smtp_to" type="text" value="{{.S.SMTPTo}}"></div>
+      </div>
+      <p class="hint">Port 587 uses STARTTLS, port 465 uses implicit TLS.</p>
+    </div>
+
+    <div class="actions sticky"><button class="btn primary">Save settings</button></div>
+  </form>
+
+  <div class="card">
+    <h2>Logo</h2>
+    <div class="logo-row">
+      <div class="logo-preview">
+        {{if .S.Brand.LogoFile}}<img src="/brand/logo?v={{.S.Brand.LogoVersion}}" alt="Current logo">
+        {{else}}<svg class="mark" viewBox="0 0 48 48" aria-hidden="true"><path class="hold" d="M14 9 h20 a8 8 0 0 1 8 8 v10 a8 8 0 0 1 -8 8 h-12 l-9 6 v-6.5 a8 8 0 0 1 -7 -7.5 v-10 a8 8 0 0 1 8 -8 z"/><rect class="beam" x="15" y="19.5" width="18" height="6" rx="2"/></svg>{{end}}
+      </div>
+      <div>
+        <p class="hint" style="margin-top:0">{{if .S.Brand.LogoFile}}Your logo replaces the built-in mark and is also used as favicon.{{else}}Built-in mark (default). Upload a logo to replace it; it is also used as favicon.{{end}} PNG, JPEG, WebP or SVG, max. 2 MB. Square works best.</p>
+        <form method="post" action="/admin/branding/logo" enctype="multipart/form-data" class="actions">
+          <input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg" required>
+          <button class="btn">Upload</button>
+        </form>
+        {{if .S.Brand.LogoFile}}<form method="post" action="/admin/branding/logo/delete" class="confirm" data-confirm="Remove logo and go back to the built-in mark?" style="margin-top:10px"><button class="linklike danger">Remove logo</button></form>{{end}}
+      </div>
+    </div>
+    <form method="post" action="/admin/branding/reset" class="confirm" data-confirm="Reset wordmark, colors and logo to the defaults?" style="margin-top:16px">
+      <button class="btn ghost danger">Reset branding to defaults</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Test notifications</h2>
+    {{if .TestResult}}<ul class="results">{{range .TestResult}}<li>{{.}}</li>{{end}}</ul>{{end}}
+    <form method="post" action="/admin/settings/test"><button class="btn">Send test notification</button></form>
+    <p class="hint">Uses the saved settings.</p>
+  </div>
+
+  <div class="card">
+    <h2>Change admin password</h2>
+    {{if .PwError}}<p class="error">{{.PwError}}</p>{{end}}
+    <form method="post" action="/admin/password" class="form">
+      <div class="field"><label for="cur">Current password</label><input id="cur" name="current" type="password" required autocomplete="current-password"></div>
+      <div class="grid2">
+        <div class="field"><label for="np">New password</label><input id="np" name="password" type="password" minlength="10" required autocomplete="new-password"></div>
+        <div class="field"><label for="np2">Repeat</label><input id="np2" name="password2" type="password" minlength="10" required autocomplete="new-password"></div>
+      </div>
+      <div class="actions"><button class="btn">Change password</button></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Data</h2>
+    <p><a class="btn ghost" href="/admin/export">Export all cards as JSON</a></p>
+    <p class="hint">For a full backup, back up the data directory (<code>feedback.json</code> and <code>uploads/</code>).</p>
+  </div>
+</section>
+{{end}}
+
+{{define "colorfield"}}
+<div class="field colorfield">
+  <label class="check small"><input type="checkbox" name="{{.Key}}_on" value="1" {{if .Val}}checked{{end}}> {{.Label}}</label>
+  <div class="colorrow"><input type="color" name="{{.Key}}" value="{{defaultColor .Val .Def}}" aria-label="{{.Label}}"><span class="hint" style="margin:0">{{.Hint}}</span></div>
+</div>
+{{end}}

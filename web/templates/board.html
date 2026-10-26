@@ -1,0 +1,53 @@
+{{define "title"}}Board · {{.S.Title}}{{end}}
+{{define "bodyclass"}}wide admin{{end}}
+{{define "content"}}
+<section class="toolbar">
+  <div class="tb-left">
+    <h1>Board</h1>
+    {{if .Unread}}<span class="badge">{{.Unread}} new repl{{if eq .Unread 1}}y{{else}}ies{{end}}</span>{{end}}
+  </div>
+  <div class="tb-right">
+    <input type="search" id="q" placeholder="Search … (#12, text, label)" aria-label="Filter cards">
+    <select id="cat" aria-label="Category">
+      <option value="">All categories</option>
+      {{range .S.Categories}}<option>{{.}}</option>{{end}}
+    </select>
+    <form method="post" action="/admin/new" class="quickadd">
+      <input name="title" type="text" placeholder="Add your own card …" maxlength="200" required>
+      <button class="btn">+</button>
+    </form>
+  </div>
+</section>
+
+<section class="board" id="board">
+  {{range .Cols}}
+  <div class="col col-{{.Key}}" data-status="{{.Key}}">
+    <h2>{{.Label}} <span class="count">{{len .Tickets}}</span></h2>
+    <ul class="cards" data-status="{{.Key}}">
+      {{range .Tickets}}
+      <li class="kcard {{if .UnreadReply}}unread{{end}}" draggable="true" data-id="{{.ID}}" data-cat="{{.Category}}"
+          data-search="#{{.ID}} {{.Title}} {{.Body}} {{join .Labels " "}}">
+        <a href="/admin/t/{{.ID}}" class="kcard-link">
+          <div class="kcard-top">
+            <span class="id">#{{.ID}}</span>
+            <span class="chip">{{.Category}}</span>
+            {{if .Internal}}<span class="chip ghost">internal</span>{{end}}
+            {{if .UnreadReply}}<span class="dot-new" title="New reply"></span>{{end}}
+          </div>
+          <p class="kcard-title">{{.Title}}</p>
+          {{if .Labels}}<div class="labels">{{range .Labels}}<span class="label">{{.}}</span>{{end}}</div>{{end}}
+          <div class="kcard-meta">
+            <span>{{ago .CreatedAt}}</span>
+            {{if .Attachments}}<span title="Attachments">📎 {{len .Attachments}}</span>{{end}}
+            {{if .Messages}}<span title="Messages">💬 {{len .Messages}}</span>{{end}}
+            {{if .OnRoadmap}}<span title="On the roadmap">◆ Roadmap</span>{{end}}
+          </div>
+        </a>
+      </li>
+      {{end}}
+    </ul>
+  </div>
+  {{end}}
+</section>
+{{end}}
+{{define "scripts"}}<script src="/static/board.js?v={{.Version}}"></script>{{end}}

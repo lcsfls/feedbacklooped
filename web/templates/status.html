@@ -1,0 +1,56 @@
+{{define "title"}}Status: {{.T.Title}} · {{.S.Title}}{{end}}
+{{define "content"}}
+<section class="narrow">
+  <p class="eyebrow">Your feedback #{{.T.ID}} · {{.T.Category}} · {{date .T.CreatedAt}}</p>
+  <h1>{{.T.Title}}</h1>
+
+  {{$step := stepIndex .T.Status}}
+  {{if eq .T.Status "rejected"}}
+    <div class="card status-rejected">
+      <strong>Declined.</strong> We looked into this and decided not to pursue it. If there is a reason, you will find it in the conversation below.
+    </div>
+  {{else}}
+    <ol class="steps" aria-label="Progress">
+      <li class="{{if ge $step 0}}reached{{end}} {{if eq $step 0}}current{{end}}"><span>Received</span></li>
+      <li class="{{if ge $step 1}}reached{{end}} {{if eq $step 1}}current{{end}}"><span>In review</span></li>
+      <li class="{{if ge $step 2}}reached{{end}} {{if eq $step 2}}current{{end}}"><span>Planned</span></li>
+      <li class="{{if ge $step 3}}reached{{end}} {{if eq $step 3}}current{{end}}"><span>Done</span></li>
+    </ol>
+  {{end}}
+
+  <div class="card">
+    {{if .T.Body}}<div class="prose">{{.T.Body}}</div>{{else}}<p class="muted">No description.</p>{{end}}
+    {{template "attlist" (dict "Atts" (.T.AttachmentsFor 0) "TID" .T.ID "Q" .Token)}}
+  </div>
+
+  <h2 id="thread">Conversation</h2>
+  {{if .T.Messages}}
+  <ol class="thread">
+    {{range .T.Messages}}
+    <li class="msg {{if .FromTeam}}team{{else}}me{{end}}">
+      <div class="msg-head"><strong>{{if .FromTeam}}Team{{else}}You{{end}}</strong> <span>{{datetime .CreatedAt}}</span></div>
+      {{if .Body}}<div class="prose">{{.Body}}</div>{{end}}
+      {{template "attlist" (dict "Atts" ($.T.AttachmentsFor .ID) "TID" $.T.ID "Q" $.Token)}}
+    </li>
+    {{end}}
+  </ol>
+  {{else}}
+  <p class="muted">No messages yet. As soon as the team replies, it will show up here.</p>
+  {{end}}
+
+  <form class="card form" method="post" action="/s/{{.Token}}/reply" enctype="multipart/form-data">
+    <input type="hidden" name="stamp" value="{{.Stamp}}">
+    <div class="hp" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+    <div class="field">
+      <label for="reply">Add something</label>
+      <textarea id="reply" name="body" rows="4" maxlength="20000" placeholder="New details, an answer to a question, “doesn’t happen anymore” …"></textarea>
+    </div>
+    <div class="field">
+      <input type="file" name="files" multiple accept="image/*,video/*,.txt,.log">
+    </div>
+    <div class="actions"><button class="btn primary">Send</button></div>
+  </form>
+
+  <p class="privacy">This page can only be reached through your private link. Don’t share it unless you want to.</p>
+</section>
+{{end}}

@@ -1,0 +1,115 @@
+{{define "title"}}#{{.T.ID}} {{.T.Title}} · {{.S.Title}}{{end}}
+{{define "bodyclass"}}wide admin{{end}}
+{{define "content"}}
+<p class="back"><a href="/admin">← Board</a></p>
+<div class="detail">
+  <div class="detail-main">
+    <p class="eyebrow">#{{.T.ID}} · {{.T.Category}} · {{statusLabel .T.Status}} · received {{datetime .T.CreatedAt}}</p>
+    <h1>{{.T.Title}}</h1>
+
+    <div class="card">
+      {{if .T.Internal}}
+        <label for="tbody" class="label">Description (internal card)</label>
+        <textarea id="tbody" name="body" form="tform" rows="8">{{.T.Body}}</textarea>
+        <p class="hint">Saved with the “Save” button on the right.</p>
+      {{else if .T.Body}}
+        <div class="prose">{{.T.Body}}</div>
+      {{else}}
+        <p class="muted">No description.</p>
+      {{end}}
+      {{template "attlist" (dict "Atts" (.T.AttachmentsFor 0) "TID" .T.ID "Q" "" "Del" true)}}
+    </div>
+
+    {{if not .T.Internal}}
+    <h2 id="thread">Conversation <span class="muted small">visible to the submitter</span></h2>
+    {{if .T.Messages}}
+    <ol class="thread">
+      {{range .T.Messages}}
+      <li class="msg {{if .FromTeam}}team{{else}}me{{end}}">
+        <div class="msg-head">
+          <strong>{{if .FromTeam}}Team{{else}}Submitter{{end}}</strong> <span>{{datetime .CreatedAt}}</span>
+          <form method="post" action="/admin/t/{{$.T.ID}}/message/{{.ID}}/delete" class="inline confirm" data-confirm="Delete this message and its attachments?"><button class="linklike danger">delete</button></form>
+        </div>
+        {{if .Body}}<div class="prose">{{.Body}}</div>{{end}}
+        {{template "attlist" (dict "Atts" ($.T.AttachmentsFor .ID) "TID" $.T.ID "Q" "" "Del" true)}}
+      </li>
+      {{end}}
+    </ol>
+    {{else}}
+    <p class="muted">No messages yet.</p>
+    {{end}}
+    <form class="card form" method="post" action="/admin/t/{{.T.ID}}/message" enctype="multipart/form-data">
+      <div class="field">
+        <label for="msg">Reply to the submitter</label>
+        <textarea id="msg" name="body" rows="4" placeholder="Shows up on their status page. They don’t get an email, they’ll see it on their next visit."></textarea>
+      </div>
+      <div class="field"><input type="file" name="files" multiple accept="image/*,video/*,.txt,.log"></div>
+      <div class="actions"><button class="btn primary">Publish reply</button></div>
+    </form>
+    {{end}}
+
+    <h2 id="notes">Internal notes <span class="muted small">only visible to you</span></h2>
+    {{if .T.Notes}}
+    <ol class="notes">
+      {{range .T.Notes}}
+      <li>
+        <div class="msg-head"><span>{{datetime .CreatedAt}}</span>
+          <form method="post" action="/admin/t/{{$.T.ID}}/note/{{.ID}}/delete" class="inline confirm" data-confirm="Delete note?"><button class="linklike danger">delete</button></form>
+        </div>
+        <div class="prose">{{.Body}}</div>
+      </li>
+      {{end}}
+    </ol>
+    {{end}}
+    <form class="form notes-form" method="post" action="/admin/t/{{.T.ID}}/note">
+      <textarea name="body" rows="2" placeholder="Add a note …" required></textarea>
+      <button class="btn">Save note</button>
+    </form>
+  </div>
+
+  <aside class="detail-side">
+    <form id="tform" class="card form" method="post" action="/admin/t/{{.T.ID}}">
+      <div class="field">
+        <label for="title">Title</label>
+        <input id="title" name="title" type="text" value="{{.T.Title}}" maxlength="200">
+      </div>
+      <div class="field">
+        <label for="status">Status</label>
+        <select id="status" name="status">
+          {{range statuses}}<option value="{{.Key}}" {{if eq .Key $.T.Status}}selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+      </div>
+      <div class="field">
+        <label for="category">Category</label>
+        <select id="category" name="category">
+          {{range .S.Categories}}<option {{if eq . $.T.Category}}selected{{end}}>{{.}}</option>{{end}}
+        </select>
+      </div>
+      <div class="field">
+        <label for="labels">Labels <span class="opt">(comma-separated)</span></label>
+        <input id="labels" name="labels" type="text" value="{{join .T.Labels ", "}}" placeholder="e.g. v1.4, Exchange, urgent">
+      </div>
+      <div class="field">
+        <label class="check"><input type="checkbox" name="on_roadmap" value="1" {{if .T.OnRoadmap}}checked{{end}}> Show on public roadmap</label>
+        <input name="roadmap_title" type="text" value="{{.T.RoadmapTitle}}" maxlength="200" placeholder="Public title (empty = title above)">
+        <p class="hint">Only the title is shown, never the description or attachments. Visible in the In review, Planned and Done columns.</p>
+      </div>
+      <div class="actions"><button class="btn primary">Save</button></div>
+    </form>
+
+    <div class="card meta">
+      {{if .T.Internal}}
+        <p>Internal card, no status link.</p>
+      {{else}}
+        <p><span class="label">Contact</span> {{if .T.Contact}}{{.T.Contact}}{{else}}<span class="muted">anonymous</span>{{end}}</p>
+        <p class="hint">Only the submitter knows the status link. It is stored as a hash and can’t be shown here.</p>
+      {{end}}
+      <p><span class="label">Last updated</span> {{datetime .T.UpdatedAt}}</p>
+    </div>
+
+    <form method="post" action="/admin/t/{{.T.ID}}/delete" class="confirm" data-confirm="Permanently delete card #{{.T.ID}} and all its attachments?">
+      <button class="btn danger ghost wide">Delete card</button>
+    </form>
+  </aside>
+</div>
+{{end}}

@@ -1,0 +1,499 @@
+package main
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
+)
+
+var errNotFound = errors.New("not found")
+
+func (a *App) handleAdminHome(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	if a.store.Settings().AdminHash == "" {
+		a.render(w, r, 200, "setup", nil)
+		return
+	}
+	if !a.isAdmin(r) {
+		a.render(w, r, 200, "login", nil)
+		return
+	}
+	type col struct {
+		Key, Label string
+		Tickets    []*Ticket
+	}
+	var cols []col
+	for _, s := range Statuses {
+		cols = append(cols, col{Key: s.Key, Label: s.Label})
+	}
+	unread := 0
+	for _, t := range a.store.Tickets() {
+		if t.UnreadReply {
+			unread++
+		}
+		for i := range cols {
+			if cols[i].Key == t.Status {
+				cols[i].Tickets = append(cols[i].Tickets, t)
+			}
+		}
+	}
+	a.render(w, r, 200, "board", pageData{"Cols": cols, "Unread": unread})
+}
+
+func (a *App) handleSetup(w http.ResponseWriter, r *http.Request) {
+	if !sameOrigin(r) {
+		a.fail(w, r, 403, "Request from another site rejected.")
+		return
+	}
+	pw, pw2 := r.FormValue("password"), r.FormValue("password2")
+	if utf8Len(pw) < 10 {
+		a.render(w, r, 400, "setup", pageData{"Error": "The password needs at least 10 characters."})
+		return
+	}
+	if pw != pw2 {
+		a.render(w, r, 400, "setup", pageData{"Error": "The passwords do not match."})
+		return
+	}
+	h, err := hashPassword(pw)
+	if err != nil {
+		a.fail(w, r, 500, err.Error())
+		return
+	}
+	base := a.baseURL(r)
+	err = a.store.Update(func(db *dbFile) error {
+		if db.Settings.AdminHash != "" {
+			return errors.New("already set up")
+		}
+		db.Settings.AdminHash = h
+		if db.Settings.BaseURL == "" {
+			db.Settings.BaseURL = base
+		}
+		if t := strings.TrimSpace(r.FormValue("title")); t != "" {
+			db.Settings.Title = cleanText(t, 80)
+		}
+		return nil
+	})
+	if err != nil {
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		return
+	}
+	a.setSession(w, r)
+	http.Redirect(w, r, "/admin/settings?msg=saved", http.StatusSeeOther)
+}
+
+func utf8Len(s string) int { return len([]rune(s)) }
+
+func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
+	if !sameOrigin(r) {
+		a.fail(w, r, 403, "Request from another site rejected.")
+		return
+	}
+	if !a.loginLimit.Allow(a.clientKey(r)) {
+		a.render(w, r, 429, "login", pageData{"Error": "Too many attempts. Please try again in 15 minutes."})
+		return
+	}
+	if !checkPassword(a.store.Settings().AdminHash, r.FormValue("password")) {
+		time.Sleep(700 * time.Millisecond)
+		a.render(w, r, 401, "login", pageData{"Error": "Wrong password."})
+		return
+	}
+	a.setSession(w, r)
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func (a *App) handleLogout(w http.ResponseWriter, r *http.Request) {
+	a.clearSession(w, r)
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+func (a *App) handleNewCard(w http.ResponseWriter, r *http.Request) {
+	title := cleanText(r.FormValue("title"), 200)
+	if title == "" {
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		return
+	}
+	st := a.store.Settings()
+	cat := r.FormValue("category")
+	if !slices.Contains(st.Categories, cat) && len(st.Categories) > 0 {
+		cat = st.Categories[0]
+	}
+	now := time.Now()
+	var id int
+	a.store.Update(func(db *dbFile) error {
+		id = db.NextID
+		db.NextID++
+		db.Tickets = append(db.Tickets, &Ticket{ID: id, Title: title, Category: cat, Status: "inbox",
+			Pos: minPos(db, "inbox"), Internal: true, CreatedAt: now, UpdatedAt: now})
+		return nil
+	})
+	http.Redirect(w, r, fmt.Sprintf("/admin/t/%d", id), http.StatusSeeOther)
+}
+
+// handleMove sets status and column order after drag & drop.
+func (a *App) handleMove(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID     int    `json:"id"`
+		Status string `json:"status"`
+		Order  []int  `json:"order"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil || !validStatus(req.Status) {
+		writeJSON(w, 400, map[string]any{"ok": false, "error": "invalid request"})
+		return
+	}
+	err := a.store.Update(func(db *dbFile) error {
+		t := findTicket(db, req.ID)
+		if t == nil {
+			return errNotFound
+		}
+		if t.Status != req.Status {
+			t.Status = req.Status
+			t.UpdatedAt = time.Now()
+		}
+		for i, id := range req.Order {
+			if tt := findTicket(db, id); tt != nil && tt.Status == req.Status {
+				tt.Pos = float64(i)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		writeJSON(w, 404, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	writeJSON(w, 200, map[string]any{"ok": true})
+}
+
+func (a *App) handleTicket(w http.ResponseWriter, r *http.Request) {
+	id := pathInt(r, "id")
+	t := a.store.Ticket(id)
+	if t == nil {
+		a.notFound(w, r)
+		return
+	}
+	if t.UnreadReply {
+		a.store.Update(func(db *dbFile) error {
+			if tt := findTicket(db, id); tt != nil {
+				tt.UnreadReply = false
+			}
+			return nil
+		})
+	}
+	a.render(w, r, 200, "ticket", pageData{"T": t})
+}
+
+func (a *App) handleTicketUpdate(w http.ResponseWriter, r *http.Request) {
+	id := pathInt(r, "id")
+	st := a.store.Settings()
+	err := a.store.Update(func(db *dbFile) error {
+		t := findTicket(db, id)
+		if t == nil {
+			return errNotFound
+		}
+		if v := cleanText(r.FormValue("title"), 200); v != "" {
+			t.Title = v
+		}
+		if t.Internal {
+			t.Body = cleanText(r.FormValue("body"), 20000)
+		}
+		if c := r.FormValue("category"); slices.Contains(st.Categories, c) {
+			t.Category = c
+		}
+		if s := r.FormValue("status"); validStatus(s) && s != t.Status {
+			t.Status = s
+			t.Pos = minPos(db, s)
+		}
+		t.Labels = nil
+		for _, l := range strings.Split(r.FormValue("labels"), ",") {
+			if l = cleanText(l, 40); l != "" && !slices.Contains(t.Labels, l) {
+				t.Labels = append(t.Labels, l)
+			}
+		}
+		t.OnRoadmap = r.FormValue("on_roadmap") == "1"
+		t.RoadmapTitle = cleanText(r.FormValue("roadmap_title"), 200)
+		t.UpdatedAt = time.Now()
+		return nil
+	})
+	if err != nil {
+		a.notFound(w, r)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/admin/t/%d?msg=saved", id), http.StatusSeeOther)
+}
+
+func (a *App) handleTeamMessage(w http.ResponseWriter, r *http.Request) {
+	id := pathInt(r, "id")
+	t := a.store.Ticket(id)
+	if t == nil {
+		a.notFound(w, r)
+		return
+	}
+	if err := a.parseUpload(w, r); err != nil {
+		a.fail(w, r, 400, err.Error())
+		return
+	}
+	body := cleanText(r.FormValue("body"), 20000)
+	files := formFiles(r)
+	if body == "" && len(files) == 0 {
+		http.Redirect(w, r, fmt.Sprintf("/admin/t/%d", id), http.StatusSeeOther)
+		return
+	}
+	atts, err := a.saveUploads(files, len(t.Attachments))
+	if err != nil {
+		a.fail(w, r, 400, err.Error())
+		return
+	}
+	err = a.store.Update(func(db *dbFile) error {
+		tt := findTicket(db, id)
+		if tt == nil {
+			return errNotFound
+		}
+		mid := tt.nextMessageID()
+		tt.Messages = append(tt.Messages, Message{ID: mid, FromTeam: true, Body: body, CreatedAt: time.Now()})
+		for i := range atts {
+			atts[i].MessageID = mid
+		}
+		tt.Attachments = append(tt.Attachments, atts...)
+		tt.UpdatedAt = time.Now()
+		return nil
+	})
+	if err != nil {
+		a.removeFiles(atts)
+		a.notFound(w, r)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/admin/t/%d?msg=sent#thread", id), http.StatusSeeOther)
+}
+
+func (a *App) handleMessageDelete(w http.ResponseWriter, r *http.Request) {
+	id, mid := pathInt(r, "id"), pathInt(r, "mid")
+	var removed []Attachment
+	a.store.Update(func(db *dbFile) error {
+		t := findTicket(db, id)
+		if t == nil {
+			return errNotFound
+		}
+		t.Messages = slices.DeleteFunc(t.Messages, func(m Message) bool { return m.ID == mid })
+		t.Attachments = slices.DeleteFunc(t.Attachments, func(at Attachment) bool {
+			if mid != 0 && at.MessageID == mid {
+				removed = append(removed, at)
+				return true
+			}
+			return false
+		})
+		return nil
+	})
+	a.removeFiles(removed)
+	http.Redirect(w, r, fmt.Sprintf("/admin/t/%d?msg=deleted#thread", id), http.StatusSeeOther)
+}
+
+func (a *App) handleNote(w http.ResponseWriter, r *http.Request) {
+	id := pathInt(r, "id")
+	body := cleanText(r.FormValue("body"), 20000)
+	if body != "" {
+		a.store.Update(func(db *dbFile) error {
+			t := findTicket(db, id)
+			if t == nil {
+				return errNotFound
+			}
+			t.Notes = append(t.Notes, Note{ID: t.nextNoteID(), Body: body, CreatedAt: time.Now()})
+			return nil
+		})
+	}
+	http.Redirect(w, r, fmt.Sprintf("/admin/t/%d#notes", id), http.StatusSeeOther)
+}
+
+func (a *App) handleNoteDelete(w http.ResponseWriter, r *http.Request) {
+	id, nid := pathInt(r, "id"), pathInt(r, "nid")
+	a.store.Update(func(db *dbFile) error {
+		t := findTicket(db, id)
+		if t == nil {
+			return errNotFound
+		}
+		t.Notes = slices.DeleteFunc(t.Notes, func(n Note) bool { return n.ID == nid })
+		return nil
+	})
+	http.Redirect(w, r, fmt.Sprintf("/admin/t/%d#notes", id), http.StatusSeeOther)
+}
+
+func (a *App) handleAttachmentDelete(w http.ResponseWriter, r *http.Request) {
+	id, aid := pathInt(r, "id"), r.PathValue("aid")
+	var removed []Attachment
+	a.store.Update(func(db *dbFile) error {
+		t := findTicket(db, id)
+		if t == nil {
+			return errNotFound
+		}
+		t.Attachments = slices.DeleteFunc(t.Attachments, func(at Attachment) bool {
+			if at.ID == aid {
+				removed = append(removed, at)
+				return true
+			}
+			return false
+		})
+		return nil
+	})
+	a.removeFiles(removed)
+	http.Redirect(w, r, fmt.Sprintf("/admin/t/%d?msg=deleted", id), http.StatusSeeOther)
+}
+
+func (a *App) handleTicketDelete(w http.ResponseWriter, r *http.Request) {
+	id := pathInt(r, "id")
+	var removed []Attachment
+	a.store.Update(func(db *dbFile) error {
+		db.Tickets = slices.DeleteFunc(db.Tickets, func(t *Ticket) bool {
+			if t.ID == id {
+				removed = t.Attachments
+				return true
+			}
+			return false
+		})
+		return nil
+	})
+	a.removeFiles(removed)
+	http.Redirect(w, r, "/admin?msg=deleted", http.StatusSeeOther)
+}
+
+func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
+	a.render(w, r, 200, "settings", nil)
+}
+
+func formInt(r *http.Request, key string, def, min, max int) int {
+	n, err := strconv.Atoi(strings.TrimSpace(r.FormValue(key)))
+	if err != nil {
+		return def
+	}
+	return max0(min, minI(n, max))
+}
+
+func max0(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func minI(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func (a *App) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
+	a.store.Update(func(db *dbFile) error {
+		s := &db.Settings
+		s.Title = cleanText(r.FormValue("title"), 80)
+		if s.Title == "" {
+			s.Title = "Feedback"
+		}
+		s.Intro = cleanText(r.FormValue("intro"), 2000)
+		a.saveBrandForm(r, &s.Brand)
+		s.BaseURL = strings.TrimRight(cleanURL(r.FormValue("base_url")), "/")
+		var cats []string
+		for _, c := range strings.Split(r.FormValue("categories"), "\n") {
+			if c = cleanText(c, 40); c != "" && !slices.Contains(cats, c) {
+				cats = append(cats, c)
+			}
+		}
+		if len(cats) > 0 {
+			s.Categories = cats
+		}
+		s.RoadmapEnabled = r.FormValue("roadmap_enabled") == "1"
+		s.RoadmapIntro = cleanText(r.FormValue("roadmap_intro"), 1000)
+		s.MaxFileMB = formInt(r, "max_file_mb", s.MaxFileMB, 1, 2048)
+		s.MaxFiles = formInt(r, "max_files", s.MaxFiles, 1, 30)
+		s.MaxRecordSec = formInt(r, "max_record_sec", s.MaxRecordSec, 10, 1800)
+
+		s.NtfyURL = cleanURL(r.FormValue("ntfy_url"))
+		if v := strings.TrimSpace(r.FormValue("ntfy_token")); v != "" {
+			s.NtfyToken = v
+		}
+		if r.FormValue("ntfy_token_clear") == "1" {
+			s.NtfyToken = ""
+		}
+		s.WebhookURL = cleanURL(r.FormValue("webhook_url"))
+		s.SMTPHost = strings.TrimSpace(r.FormValue("smtp_host"))
+		s.SMTPPort = formInt(r, "smtp_port", 587, 1, 65535)
+		s.SMTPUser = strings.TrimSpace(r.FormValue("smtp_user"))
+		if v := r.FormValue("smtp_pass"); v != "" {
+			s.SMTPPass = v
+		}
+		if r.FormValue("smtp_pass_clear") == "1" {
+			s.SMTPPass = ""
+		}
+		s.SMTPFrom = strings.TrimSpace(r.FormValue("smtp_from"))
+		s.SMTPTo = strings.TrimSpace(r.FormValue("smtp_to"))
+		return nil
+	})
+	http.Redirect(w, r, "/admin/settings?msg=saved", http.StatusSeeOther)
+}
+
+// cleanURL only allows http(s) URLs.
+func cleanURL(s string) string {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "https://") || strings.HasPrefix(s, "http://") {
+		return s
+	}
+	return ""
+}
+
+func (a *App) handleNotifyTest(w http.ResponseWriter, r *http.Request) {
+	st := a.store.Settings()
+	if st.NtfyURL == "" && st.WebhookURL == "" && (st.SMTPHost == "" || st.SMTPTo == "") {
+		a.render(w, r, 200, "settings", pageData{"TestResult": []string{"No channel configured. Save first, then test."}})
+		return
+	}
+	e := Event{Kind: "new_ticket", TicketID: 0, Title: "Test notification", Category: "Test",
+		Body: "If you can read this, notifications are working.", At: time.Now()}
+	if st.BaseURL != "" {
+		e.URL = st.BaseURL + "/admin"
+	}
+	var res []string
+	errs := a.sendAll(st, e)
+	for _, err := range errs {
+		res = append(res, "Error: "+err.Error())
+	}
+	if len(errs) == 0 {
+		res = append(res, "All configured channels were reached successfully.")
+	}
+	a.render(w, r, 200, "settings", pageData{"TestResult": res})
+}
+
+func (a *App) handlePassword(w http.ResponseWriter, r *http.Request) {
+	st := a.store.Settings()
+	if !checkPassword(st.AdminHash, r.FormValue("current")) {
+		a.render(w, r, 400, "settings", pageData{"PwError": "The current password is wrong."})
+		return
+	}
+	pw := r.FormValue("password")
+	if utf8Len(pw) < 10 || pw != r.FormValue("password2") {
+		a.render(w, r, 400, "settings", pageData{"PwError": "New password: at least 10 characters, entered twice identically."})
+		return
+	}
+	h, err := hashPassword(pw)
+	if err != nil {
+		a.fail(w, r, 500, err.Error())
+		return
+	}
+	a.store.Update(func(db *dbFile) error { db.Settings.AdminHash = h; return nil })
+	a.setSession(w, r) // new session with new fingerprint; all others are logged out
+	http.Redirect(w, r, "/admin/settings?msg=pw", http.StatusSeeOther)
+}
+
+// handleExport returns all tickets as JSON (without credentials), e.g. as a backup.
+func (a *App) handleExport(w http.ResponseWriter, r *http.Request) {
+	tickets := a.store.Tickets()
+	for _, t := range tickets {
+		t.TokenHash = ""
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Disposition", `attachment; filename="feedback-export-`+time.Now().Format("2006-01-02")+`.json"`)
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	enc.Encode(map[string]any{"exported_at": time.Now(), "tickets": tickets})
+}
