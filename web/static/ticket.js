@@ -1,25 +1,13 @@
-// Status track on the card page: drag the token into a lane, or click a lane.
+// Status track on the card page: click a lane, or drag the current one onto another.
 (() => {
   const track = document.getElementById('track');
   if (!track) return;
   const id = +track.dataset.id;
   const hint = document.getElementById('track-hint');
   const statusLabel = document.getElementById('status-label');
-  let token = document.getElementById('token');
   let busy = false;
 
-  // Move the token into a lane with a short arc instead of teleporting it.
-  function fly(lane) {
-    const from = token.getBoundingClientRect();
-    lane.append(token);
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const to = token.getBoundingClientRect();
-    const dx = from.left - to.left, dy = from.top - to.top;
-    token.animate([
-      { transform: `translate(${dx}px, ${dy}px) scale(1)` },
-      { transform: `translate(${dx / 2}px, ${dy / 2 - 18}px) scale(1.12) rotate(-4deg)`, offset: .45 },
-      { transform: 'none' },
-    ], { duration: 480, easing: 'cubic-bezier(.22,1,.36,1)' });
+  function land(lane) {
     lane.classList.remove('landed'); void lane.offsetWidth; lane.classList.add('landed');
   }
 
@@ -27,12 +15,14 @@
     const current = track.querySelector('.lane.current');
     if (busy || lane === current) return;
     busy = true;
-    // Optimistic: move the token right away, roll back on error.
+    // Optimistic: switch right away, roll back on error.
     current.classList.remove('current');
     current.setAttribute('aria-pressed', 'false');
+    current.removeAttribute('draggable');
     lane.classList.add('current', 'saving');
+    lane.draggable = true;
     lane.setAttribute('aria-pressed', 'true');
-    fly(lane);
+    land(lane);
     try {
       const res = await fetch('/admin/api/move', {
         method: 'POST',
@@ -46,9 +36,11 @@
     } catch {
       lane.classList.remove('current');
       lane.setAttribute('aria-pressed', 'false');
+      lane.removeAttribute('draggable');
+      current.draggable = true;
       current.classList.add('current');
       current.setAttribute('aria-pressed', 'true');
-      fly(current);
+      land(current);
       hint.textContent = 'Moving failed. Please try again.';
     } finally {
       lane.classList.remove('saving');
@@ -61,12 +53,13 @@
     if (lane) moveTo(lane);
   });
 
-  token.addEventListener('dragstart', (e) => {
+  track.addEventListener('dragstart', (e) => {
+    if (!e.target.closest?.('.lane.current')) return e.preventDefault();
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', String(id));
     track.classList.add('dragging');
   });
-  token.addEventListener('dragend', () => {
+  track.addEventListener('dragend', () => {
     track.classList.remove('dragging');
     track.querySelectorAll('.lane.over').forEach((l) => l.classList.remove('over'));
   });
@@ -89,3 +82,11 @@
     moveTo(lane);
   });
 })();
+
+// Long titles: the title box grows with its text, Enter saves.
+document.querySelectorAll('textarea.autogrow').forEach((t) => {
+  const fit = () => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; };
+  t.addEventListener('input', fit);
+  t.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); t.form?.requestSubmit(); } });
+  fit();
+});

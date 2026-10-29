@@ -4,21 +4,17 @@
 <p class="back"><a href="{{boardURL .T.BoardID}}">← {{with .Board}}{{.Name}}{{else}}Board{{end}}</a></p>
 <div class="detail">
   <div class="detail-main">
-    <p class="eyebrow">#{{.T.ID}} · {{.T.Category}} · <span id="status-label">{{statusLabel .T.Status}}</span> · received {{datetime .T.CreatedAt}}</p>
-    {{if and .T.VisibleOnRoadmap .S.RoadmapEnabled}}<p class="vis-banner public"><svg class="globe" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c1.8 1.7 2.6 3.7 2.6 6S9.8 12.3 8 14C6.2 12.3 5.4 10.3 5.4 8S6.2 3.7 8 2z"/></svg><span><strong>Public.</strong>
-      Shown at <a href="/roadmap/{{.T.ID}}" target="_blank" rel="noopener">/roadmap/{{.T.ID}}</a>: the title{{if .T.RoadmapTitle}} “{{.T.RoadmapTitle}}”{{end}}{{if .T.PublicDetails}}, the {{if .T.PublicBody}}public {{end}}description{{if .T.PublicMedia}} and {{len .T.PublicMedia}} screenshot{{if ne (len .T.PublicMedia) 1}}s/videos{{else}}/video{{end}}{{end}}{{end}}{{with len .T.PublicMessages}} and {{.}} public message{{if ne . 1}}s{{end}}{{end}}.
-      Everything else stays private.</span></p>{{end}}
+    <p class="eyebrow">#{{.T.ID}} · {{.T.Category}} · <span id="status-label">{{statusLabel .T.Status}}</span> · received {{datetime .T.CreatedAt}}{{if and .T.VisibleOnRoadmap .S.RoadmapEnabled}} · <a class="pub-chip" href="/roadmap/{{.T.ID}}" target="_blank" rel="noopener" title="Shown at /roadmap/{{.T.ID}}: the title{{if .T.RoadmapTitle}} “{{.T.RoadmapTitle}}”{{end}}{{if .T.PublicDetails}}, the {{if .T.PublicBody}}public {{end}}description{{if .T.PublicMedia}} and {{len .T.PublicMedia}} screenshot{{if ne (len .T.PublicMedia) 1}}s/videos{{else}}/video{{end}}{{end}}{{end}}{{with len .T.PublicMessages}} and {{.}} public message{{if ne . 1}}s{{end}}{{end}}. Everything else stays private."><svg class="globe" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c1.8 1.7 2.6 3.7 2.6 6S9.8 12.3 8 14C6.2 12.3 5.4 10.3 5.4 8S6.2 3.7 8 2z"/></svg>Public</a>{{end}}</p>
     <h1>{{.T.Title}}</h1>
 
     <div class="track" id="track" data-id="{{.T.ID}}" aria-label="Status: drag the card into a column, or click one">
       {{range .Statuses}}
-      <button type="button" class="lane lane-{{.Key}}{{if eq .Key $.T.Status}} current{{end}}" data-status="{{.Key}}" aria-pressed="{{if eq .Key $.T.Status}}true{{else}}false{{end}}">
+      <button type="button" class="lane lane-{{.Key}}{{if eq .Key $.T.Status}} current{{end}}" data-status="{{.Key}}" aria-pressed="{{if eq .Key $.T.Status}}true{{else}}false{{end}}"{{if eq .Key $.T.Status}} draggable="true"{{end}}>
         <span class="lane-label">{{.Label}}</span>
-        {{if eq .Key $.T.Status}}<span class="token" draggable="true" id="token">#{{$.T.ID}}</span>{{end}}
       </button>
       {{end}}
     </div>
-    <p class="hint track-hint" id="track-hint">Drag the card into a column or click one. Changes are saved right away.</p>
+    <p class="hint track-hint" id="track-hint">Click a status, or drag the highlighted one onto another. Saved right away.</p>
 
     <div class="card">
       {{if .T.Internal}}
@@ -94,7 +90,7 @@
     <form id="tform" class="card form" method="post" action="/admin/t/{{.T.ID}}">
       <div class="field">
         <label for="title">Title</label>
-        <input id="title" name="title" type="text" value="{{.T.Title}}" maxlength="200">
+        <textarea id="title" name="title" rows="2" maxlength="200" class="autogrow">{{.T.Title}}</textarea>
       </div>
       {{if gt (len .Boards) 1}}
       <div class="field">

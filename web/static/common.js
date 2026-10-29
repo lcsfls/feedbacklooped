@@ -57,10 +57,14 @@ document.querySelectorAll('.segmented').forEach((seg) => {
 // Toast: flash messages leave on their own after a few seconds.
 const flash = document.querySelector('.flash');
 if (flash) {
-  setTimeout(() => {
-    flash.classList.add('out');
-    flash.addEventListener('animationend', () => flash.remove(), { once: true });
-  }, 3200);
+  // leaves when its timer bar has run down (paused while the pointer is on it)
+  flash.addEventListener('animationend', (e) => {
+    if (e.animationName === 'toast-timer') flash.classList.add('out');
+    else if (e.animationName === 'toast-out') flash.remove();
+  });
+  // a reload doesn't show the same message again
+  const u = new URL(location.href);
+  if (u.searchParams.has('msg')) { u.searchParams.delete('msg'); history.replaceState(null, '', u.pathname + u.search + u.hash); }
 }
 
 // FLIP helper: animate elements from where they were to where they are now.
